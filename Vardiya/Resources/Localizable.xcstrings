@@ -796,6 +796,16 @@
         }
       }
     },
+    "Sending…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönderiliyor…"
+          }
+        }
+      }
+    },
     "Sent. The envelope is on its way.": {
       "localizations": {
         "tr": {

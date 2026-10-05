@@ -21,30 +21,105 @@ enum TerminalBridge {
         }
     }
 
-    /// Mesajı oturumun sekmesine yazıp Enter'a basar.
+    /// Mesajı oturumun sekmesine yazıp gönderir. Sonuç biraz sonra gelir (terminali bekliyoruz).
+    ///
+    /// Ölçüm (2026-10-05): iTerm2 `write text` baytları olduğu gibi yolluyor, Enter da gerçek bir CR.
+    /// Ama metin ve CR peş peşe gelirse Claude Code bunu yapıştırma sayıp CR'ı satır sonu yapıyor.
+    /// Bu yüzden: metni yaz → bekle → yalnızca CR gönder → ekranı okuyup giriş kutusu boşaldı mı bak;
+    /// boşalmadıysa bir CR daha, o da olmazsa son çare olarak sekmeyi öne alıp gerçek Enter tuşu.
     @MainActor
-    static func send(_ text: String, toPID pid: Int32) -> Result<Void, Failure> {
+    static func send(_ text: String, toPID pid: Int32, completion: @escaping @MainActor (Result<Void, Failure>) -> Void) {
         // Satır sonu Claude'da "gönder" demek; çok satırlı metni tek satıra indiriyoruz.
         let line = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
-        guard !line.isEmpty else { return .success(()) }
-        // Claude Code terminalde "bracketed paste" açıyor; iTerm'in `write text` ile gönderdiği her şey
-        // (sondaki satır sonu, ayrıca yollanan CR dahil) yapıştırma sayılıyor ve mesaj kutuda kalıyor.
-        // Bu yüzden metni yazdıktan sonra sekmeyi öne alıp macOS üzerinden gerçek bir Enter tuşuna basıyoruz.
-        let typed = run(pid: pid,
-                        iTerm: "tell s to write text \(quoted(line)) newline no\n select w\n tell t to select\n tell s to select\n activate",
-                        terminal: "do script \(quoted(line)) in t")
-        guard case .success(let app) = typed else { return typed.map { _ in () } }
-        // Terminal.app'te `do script` metni zaten gönderiyor.
-        guard app == iTermID else { return .success(()) }
+        guard !line.isEmpty else { completion(.success(())); return }
+        guard let tty = tty(of: pid) else { completion(.failure(.noTTY)); return }
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+
+        guard running.contains(iTermID) else {
+            // Terminal.app'te `do script` metni zaten gönderiyor.
+            completion(run(pid: pid, iTerm: "", terminal: "do script \(quoted(line)) in t").map { _ in () })
+            return
+        }
+
+        let probe = String(line.prefix(24))
+        Task { @MainActor in
+            // 1) Metni yaz, Claude'un yapıştırma penceresi kapansın diye bekle, CR gönder.
+            let first = await osascript(iTermSession(tty: tty, body: """
+                tell s to write text \(quoted(line)) newline no
+                delay 0.9
+                tell s to write text (character id 13) newline no
+                delay 0.5
+                return contents of s
+                """))
+            guard let screen = first else { completion(.failure(.notFound)); return }
+            if !inputStillHolds(probe, screen: screen) { completion(.success(())); return }
+
+            // 2) Bir CR daha
+            let second = await osascript(iTermSession(tty: tty, body: """
+                tell s to write text (character id 13) newline no
+                delay 0.6
+                return contents of s
+                """))
+            if let second, !inputStillHolds(probe, screen: second) { completion(.success(())); return }
+
+            // 3) Son çare: sekmeyi öne alıp gerçek Enter tuşu, sonra odağı geri ver.
+            completion(pressEnterInFront(tty: tty))
+        }
+    }
+
+    /// Ekrandaki son "❯" giriş satırında hâlâ bizim metnimiz var mı (gönderilmemiş mi)?
+    private static func inputStillHolds(_ probe: String, screen: String) -> Bool {
+        guard let range = screen.range(of: "❯", options: .backwards) else { return false }
+        let tail = screen[range.upperBound...].replacingOccurrences(of: "\n", with: " ")
+        return tail.contains(probe)
+    }
+
+    @MainActor
+    private static func pressEnterInFront(tty: String) -> Result<Void, Failure> {
+        _ = execute(iTermSession(tty: tty, body: "select w\n tell t to select\n tell s to select\n activate\n return \"ok\""))
         guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == iTermID || waitForITerm() else {
             return .failure(.scriptError(String(localized: "iTerm2 didn't come to the front; press Enter in the terminal.")))
         }
-        if case .failure(let f) = execute("tell application \"System Events\" to key code 36") {
-            return .failure(f)
-        }
-        // Odağı Vardiya'ya geri ver
+        if case .failure(let f) = execute("tell application \"System Events\" to key code 36") { return .failure(f) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { NSApp.activate() }
         return .success(())
+    }
+
+    /// tty'si eşleşen iTerm2 oturumu üzerinde `body` çalıştıran betik; eşleşme yoksa "missing" döner.
+    private static func iTermSession(tty: String, body: String) -> String {
+        """
+        tell application id "com.googlecode.iterm2"
+            repeat with w in windows
+                repeat with t in tabs of w
+                    repeat with s in sessions of t
+                        if tty of s is "\(tty)" then
+                            \(body)
+                        end if
+                    end repeat
+                end repeat
+            end repeat
+        end tell
+        return "missing"
+        """
+    }
+
+    /// Bekleme içeren betikleri arayüzü dondurmadan ayrı bir `osascript` sürecinde çalıştırır.
+    private static func osascript(_ source: String) async -> String? {
+        await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+                p.arguments = ["-e", source]
+                let out = Pipe()
+                p.standardOutput = out
+                p.standardError = Pipe()
+                do { try p.run() } catch { cont.resume(returning: nil); return }
+                p.waitUntilExit()
+                let text = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                cont.resume(returning: (text == "missing" || p.terminationStatus != 0) ? nil : text)
+            }
+        }
     }
 
     /// iTerm2'nin öne gelmesini en fazla ~0,6 sn bekler; Enter yanlış uygulamaya gitmesin.
@@ -62,7 +137,14 @@ enum TerminalBridge {
     @MainActor
     static func close(pid: Int32, completion: @escaping @MainActor (Result<Void, Failure>) -> Void) {
         guard let tty = tty(of: pid) else { completion(.failure(.noTTY)); return }
-        if case .failure(let f) = send("/exit", toPID: pid) { completion(.failure(f)); return }
+        send("/exit", toPID: pid) { result in
+            if case .failure(let f) = result { completion(.failure(f)); return }
+            waitAndCloseTab(pid: pid, tty: tty, completion: completion)
+        }
+    }
+
+    @MainActor
+    private static func waitAndCloseTab(pid: Int32, tty: String, completion: @escaping @MainActor (Result<Void, Failure>) -> Void) {
         Task { @MainActor in
             for _ in 0..<20 {
                 try? await Task.sleep(for: .milliseconds(300))

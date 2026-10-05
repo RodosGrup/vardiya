@@ -77,8 +77,10 @@ actor ShiftScanner {
         let entries = readRegistry()
         var shifts: [Shift] = []
         for entry in entries {
-            guard let url = transcriptURL(for: entry.sessionId, cwd: entry.cwd) else { continue }
-            let transcript = transcript(at: url)
+            // Yeni açılan oturumun dökümü ilk mesajdan önce henüz yok; yine de hemen ofise gelsin,
+            // ayrıntılar döküm oluşunca dolar.
+            let url = transcriptURL(for: entry.sessionId, cwd: entry.cwd)
+            let transcript = url.map { transcript(at: $0) } ?? Transcript(url: URL(fileURLWithPath: "/dev/null"))
             transcript.refresh()
 
             let main = makeWorker(
@@ -90,7 +92,7 @@ actor ShiftScanner {
                 registryBusy: entry.isBusy,
                 startedAt: entry.startedAt
             )
-            let subagents = scanSubagents(sessionDir: url.deletingPathExtension(), completed: transcript.completedTaskToolIDs)
+            let subagents = url.map { scanSubagents(sessionDir: $0.deletingPathExtension(), completed: transcript.completedTaskToolIDs) } ?? []
 
             shifts.append(Shift(
                 id: entry.sessionId,

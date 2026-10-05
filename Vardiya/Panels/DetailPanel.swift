@@ -342,12 +342,17 @@ struct MessageComposer: View {
     private func send() {
         let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
-        switch TerminalBridge.send(message, toPID: shift.pid) {
-        case .success:
-            text = ""
-            feedback = (String(localized: "Sent. The envelope is on its way."), false)
-        case .failure(let f):
-            feedback = (f.message, true)
+        // Metni hemen kutudan al; terminal gönderimi arka planda bir-iki saniye sürer.
+        text = ""
+        feedback = (String(localized: "Sending…"), false)
+        TerminalBridge.send(message, toPID: shift.pid) { result in
+            switch result {
+            case .success:
+                feedback = (String(localized: "Sent. The envelope is on its way."), false)
+            case .failure(let f):
+                text = message
+                feedback = (f.message, true)
+            }
         }
     }
 

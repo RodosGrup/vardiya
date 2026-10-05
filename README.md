@@ -22,8 +22,24 @@ RealityKit ile çizilen gerçek bir 3D sahne (üstteki "3D / Sade" seçimiyle 2D
 - Gün/gece döngüsü gerçek saate bağlı: gece avizeler yanar, çalışan masaların lambası açılır.
 - Kamera: sürükle = döndür, ⌥/sağ tıkla sürükle veya iki parmak kaydır = kaydır, kıstır/tekerlek = imlece doğru yakınlaş, çift tık = tüm ofis; ajana tıklayınca kamera onu takip eder. Hazır açılar: izometrik, kuş bakışı, önden.
 - Ajanın ne yaptığı ayrıntılı: kod inceliyor/yazıyor, belge okuyor/yazıyor, görsele bakıyor, derliyor, test ediyor, git, web araması, ekran görüntüsü. Monitörde buna göre kayan kod, belge ya da görsel görünür.
-- Sohbet penceresi: bir oturumla aranızdaki konuşmanın tamamı; araç adımları gruplanır. Alttaki kutudan yazdığınız mesaj iTerm2 sekmesine gider (metin yazılır, sonra gerçek Enter tuşu basılır; ilk kullanımda otomasyon ve Erişilebilirlik izni ister). Dosya/görsel sürükleyince yolu eklenir.
+- Sohbet penceresi: bir oturumla aranızdaki konuşmanın tamamı; araç adımları gruplanır, ajan çalışırken yazdığınız mesaj "Sırada" balonuyla hemen görünür, pencere en yeni mesajlardan açılır. Dosya/görsel sürükleyince yolu eklenir.
 - Oturumu kapat: onay sonrası Claude'a `/exit` gönderilir, süreç kapanınca sekme kapatılır.
+
+## Terminale mesaj gönderme
+
+Sohbet penceresinden yazdığınız mesaj, oturumun iTerm2 sekmesine sizin yazmışsınız gibi gider. Sekme, Claude sürecinin terminal hattı (`ps -o tty`) ile iTerm2 oturumunun `tty` özelliği eşleştirilerek bulunur.
+
+Gönderim sırası:
+
+1. Metin `write text … newline no` ile yazılır.
+2. ~0,9 sn beklenip yalnızca Enter (CR) gönderilir.
+3. Sekmenin ekranı okunur; giriş kutusu (`❯` satırı) boşaldıysa bitti.
+4. Boşalmadıysa bir Enter daha denenir.
+5. O da olmazsa son çare olarak iTerm2 bir anlığına öne alınıp gerçek Enter tuşuna basılır ve odak Vardiya'ya geri verilir.
+
+Neden böyle: iTerm2 metni ve Enter'ı olduğu gibi gönderiyor (ölçüldü: `abc^Mdef^M`, yapıştırma kaçışı yok), ama Claude Code hızlı gelen karakter yığınını yapıştırma sayıp hemen ardından gelen Enter'ı satır sonu olarak yorumluyor. Bekleme bu pencereyi kapatıyor; ekran kontrolü de mesajın kutuda kalmadığından emin oluyor.
+
+İlk kullanımda macOS iTerm2'yi kontrol etmek için otomasyon izni, son çare yolu için de Erişilebilirlik izni ister. Terminal.app kullanılıyorsa `do script` ile gönderilir.
 
 ## Veri nereden geliyor
 
