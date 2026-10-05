@@ -31,3 +31,5 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "Vardiya, ofisten yazdığınız mesajı ilgili Claude oturumunun terminal sekmesine iletmek için iTerm2 veya Terminal'i kontrol eder."
+        CODE_SIGN_ENTITLEMENTS: Vardiya/Resources/Vardiya.entitlements

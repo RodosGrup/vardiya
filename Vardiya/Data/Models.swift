@@ -82,6 +82,11 @@ struct Worker: Identifiable, Equatable {
     var model: String?
     var startedAt: Date?
     var lastEventAt: Date?
+    var lastUserText: String?
+    var lastUserAt: Date?
+    var lastReplyText: String?
+    var lastReplyAt: Date?
+    var failureStreak = 0
 }
 
 /// Açık bir Claude Code oturumu: bir ana çalışan ve onun alt ajanları.

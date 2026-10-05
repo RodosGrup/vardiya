@@ -3,13 +3,27 @@ import SwiftUI
 /// Ana pencere: solda ofis, sağda seçili çalışanın detayı ve vardiya listesi.
 struct MainView: View {
     @Environment(ShiftStore.self) private var store
+    @AppStorage("officeStyle") private var style = OfficeStyle.threeD
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Header()
+            HStack(alignment: .bottom) {
+                Header()
+                Spacer()
+                Picker("", selection: $style) {
+                    Text("3D").tag(OfficeStyle.threeD)
+                    Text("Simple").tag(OfficeStyle.flat)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
             HStack(alignment: .top, spacing: 14) {
                 ZStack(alignment: .topLeading) {
-                    OfficeView()
+                    switch style {
+                    case .threeD: Office3DView()
+                    case .flat: OfficeView()
+                    }
                     SummaryChips()
                         .padding(14)
                     if let shift = store.selectedShift {
@@ -31,6 +45,10 @@ struct MainView: View {
         .frame(minWidth: 1080, minHeight: 680)
         .background(Theme.window)
     }
+}
+
+enum OfficeStyle: String {
+    case threeD, flat
 }
 
 private struct Header: View {

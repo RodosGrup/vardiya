@@ -261,7 +261,12 @@ actor ShiftScanner {
             contextTokens: transcript.contextTokens,
             model: transcript.model,
             startedAt: startedAt,
-            lastEventAt: transcript.lastEventAt
+            lastEventAt: transcript.lastEventAt,
+            lastUserText: transcript.lastUserText,
+            lastUserAt: transcript.lastUserAt,
+            lastReplyText: transcript.lastReplyText,
+            lastReplyAt: transcript.lastReplyAt,
+            failureStreak: transcript.failureStreak
         )
     }
 

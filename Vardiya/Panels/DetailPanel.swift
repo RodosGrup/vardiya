@@ -59,6 +59,22 @@ struct DetailPanel: View {
             Row(label: String(localized: "Output"), value: String(localized: "\(Format.tokens(worker.outputTokens)) tokens · \(worker.toolCount) tool calls"))
         }
 
+        if worker.kind == .main {
+            Composer(shift: shift)
+        }
+
+        if worker.lastUserText != nil || worker.lastReplyText != nil {
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+                if let text = worker.lastUserText {
+                    Exchange(symbol: "envelope.fill", tint: Theme.accent, title: String(localized: "Your last message"), text: text, at: worker.lastUserAt)
+                }
+                if let text = worker.lastReplyText {
+                    Exchange(symbol: "text.bubble.fill", tint: Theme.success, title: String(localized: "Last reply"), text: text, at: worker.lastReplyAt)
+                }
+            }
+        }
+
         if !worker.recent.isEmpty {
             Divider()
             Text("Recent work")
@@ -81,6 +97,113 @@ struct DetailPanel: View {
         case .done: return String(localized: "Handed the result back")
         case .asking: return String(localized: "Has a question for you")
         default: return worker.subtitle
+        }
+    }
+
+    /// Seçili oturuma terminal üzerinden mesaj gönderir; Claude onu sizin yazdığınız bir istek gibi alır.
+    private struct Composer: View {
+        let shift: Shift
+        @State private var text = ""
+        @State private var feedback: (text: String, isError: Bool)?
+        @FocusState private var focused: Bool
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 6) {
+                // Geniş, çok satırlı yazma alanı; gönder düğmesi sağ altta.
+                ZStack(alignment: .bottomTrailing) {
+                    TextField(String(localized: "Message \(shift.project)…"), text: $text, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .lineLimit(3...8)
+                        .focused($focused)
+                        .onSubmit(send)
+                        .padding(.leading, 10)
+                        .padding(.trailing, 44)
+                        .padding(.vertical, 9)
+                        .frame(minHeight: 72, alignment: .topLeading)
+                        .background(Theme.mutedSoft, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(focused ? Theme.accent : Theme.border) }
+                    Button(action: send) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(text.isEmpty ? Theme.muted : Theme.accent, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .help(Text("Send to the session's terminal"))
+                    .padding(6)
+                }
+                HStack {
+                    if let feedback {
+                        Label(feedback.text, systemImage: feedback.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(feedback.isError ? Theme.warning : Theme.success)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    Button {
+                        if case .failure(let f) = TerminalBridge.focus(pid: shift.pid) {
+                            feedback = (f.message, true)
+                        }
+                    } label: {
+                        Label("Open terminal", systemImage: "terminal")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.link)
+                }
+            }
+            .onChange(of: shift.id) { _, _ in text = ""; feedback = nil }
+        }
+
+        private func send() {
+            let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !message.isEmpty else { return }
+            switch TerminalBridge.send(message, toPID: shift.pid) {
+            case .success:
+                text = ""
+                feedback = (String(localized: "Sent. The envelope is on its way."), false)
+            case .failure(let f):
+                feedback = (f.message, true)
+            }
+        }
+    }
+
+    /// Son mesaj / son yanıt satırı.
+    private struct Exchange: View {
+        let symbol: String
+        let tint: Color
+        let title: String
+        let text: String
+        let at: Date?
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 10))
+                    .foregroundStyle(tint)
+                    .frame(width: 14)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                        Spacer()
+                        if let at {
+                            Text(Format.clock(at))
+                                .font(.system(size: 10).monospacedDigit())
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
+                    Text(text)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(3)
+                        .textSelection(.enabled)
+                }
+            }
         }
     }
 

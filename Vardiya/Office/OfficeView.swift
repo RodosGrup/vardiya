@@ -57,6 +57,8 @@ struct OfficeView: View {
 struct StatusBubble: View {
     let worker: Worker
     let isSelected: Bool
+    /// 3D ofiste mola, uyuklama gibi hayat olayları; varsa durum etiketinin yanında görünür.
+    var note: String? = nil
 
     var body: some View {
         let a = worker.activity
@@ -73,6 +75,12 @@ struct StatusBubble: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(a.tint)
                 .lineLimit(1)
+            if let note {
+                Text("· \(note)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)

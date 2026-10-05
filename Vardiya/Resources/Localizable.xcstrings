@@ -1,6 +1,9 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "": {
+      "shouldTranslate": false
+    },
     "!": {
       "shouldTranslate": false
     },
@@ -130,12 +133,25 @@
     "+%lld": {
       "shouldTranslate": false
     },
+    "3D": {
+      "shouldTranslate": false
+    },
     "Asking you": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Size soruyor"
+          }
+        }
+      }
+    },
+    "At lunch": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öğle yemeğinde"
           }
         }
       }
@@ -160,12 +176,32 @@
         }
       }
     },
+    "Coffee break": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kahve molasında"
+          }
+        }
+      }
+    },
     "Context": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Bağlam"
+          }
+        }
+      }
+    },
+    "Couldn't find this session's terminal line.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu oturumun terminal hattı bulunamadı."
           }
         }
       }
@@ -210,12 +246,32 @@
         }
       }
     },
+    "Dozing off": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uyukluyor"
+          }
+        }
+      }
+    },
     "Finished and waiting for your next message": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "İşini bitirdi, sıradaki mesajınızı bekliyor"
+          }
+        }
+      }
+    },
+    "Getting water": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Su içiyor"
           }
         }
       }
@@ -250,6 +306,26 @@
         }
       }
     },
+    "Last reply": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son yanıtı"
+          }
+        }
+      }
+    },
+    "Message %@…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ oturumuna yazın…"
+          }
+        }
+      }
+    },
     "Model": {
       "localizations": {
         "tr": {
@@ -266,6 +342,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Onay bekliyor"
+          }
+        }
+      }
+    },
+    "No iTerm2 or Terminal tab matches this session.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu oturuma ait bir iTerm2 ya da Terminal sekmesi bulunamadı."
           }
         }
       }
@@ -300,6 +386,16 @@
         }
       }
     },
+    "On strike!": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grevde!"
+          }
+        }
+      }
+    },
     "Open Claude Code in a terminal and the desk fills up on its own.": {
       "localizations": {
         "tr": {
@@ -316,6 +412,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ofisi aç"
+          }
+        }
+      }
+    },
+    "Open terminal": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminale git"
           }
         }
       }
@@ -390,12 +496,32 @@
         }
       }
     },
+    "Restroom": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lavaboda"
+          }
+        }
+      }
+    },
     "Running": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Komut çalıştırıyor"
+          }
+        }
+      }
+    },
+    "Rushing back": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koşarak dönüyor"
           }
         }
       }
@@ -410,12 +536,62 @@
         }
       }
     },
+    "Send to the session's terminal": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturumun terminaline gönder"
+          }
+        }
+      }
+    },
+    "Sent. The envelope is on its way.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gönderildi, zarf yolda."
+          }
+        }
+      }
+    },
+    "Shift over": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vardiyası bitti"
+          }
+        }
+      }
+    },
     "Shift started %@": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Vardiya başlangıcı %@"
+          }
+        }
+      }
+    },
+    "Show whole office": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm ofisi göster"
+          }
+        }
+      }
+    },
+    "Simple": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sade"
           }
         }
       }
@@ -430,12 +606,32 @@
         }
       }
     },
+    "Stretching": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biraz dinleniyor"
+          }
+        }
+      }
+    },
     "Task": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Görev"
+          }
+        }
+      }
+    },
+    "The terminal didn't respond.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminal yanıt vermedi."
           }
         }
       }
@@ -483,6 +679,16 @@
         }
       }
     },
+    "Washing hands": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ellerini yıkıyor"
+          }
+        }
+      }
+    },
     "Work": {
       "localizations": {
         "tr": {
@@ -502,6 +708,29 @@
           }
         }
       }
+    },
+    "Your last message": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son mesajınız"
+          }
+        }
+      }
+    },
+    "iTerm2 didn't come to the front; press Enter in the terminal.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iTerm2 öne gelmedi; terminalde Enter'a basın."
+          }
+        }
+      }
+    },
+    "· %@": {
+      "shouldTranslate": false
     }
   },
   "version": "1.0"

@@ -25,6 +25,13 @@ final class Transcript {
     private(set) var recent: [ToolEvent] = []
     /// Ana oturuma gelen "<task-notification>" bildirimlerinden: işi biten arka plan ajanlarının araç kimlikleri.
     private(set) var completedTaskToolIDs = Set<String>()
+    /// Kullanıcının son mesajı ve ajanın son yazılı yanıtı; balonlar ve zarf animasyonu bunları kullanıyor.
+    private(set) var lastUserText: String?
+    private(set) var lastUserAt: Date?
+    private(set) var lastReplyText: String?
+    private(set) var lastReplyAt: Date?
+    /// Art arda hata veren araç çağrısı sayısı; ofiste "isyan" için.
+    private(set) var failureStreak = 0
 
     private var countedMessageIDs = Set<String>()
     private static let recentLimit = 14
@@ -69,6 +76,7 @@ final class Transcript {
         outputTokens = 0; contextTokens = 0; toolCount = 0
         firstEventAt = nil; lastEventAt = nil; lastStopReason = nil
         pending = []; recent = []; countedMessageIDs = []; completedTaskToolIDs = []
+        lastUserText = nil; lastUserAt = nil; lastReplyText = nil; lastReplyAt = nil; failureStreak = 0
     }
 
     // MARK: - Satır işleme
@@ -94,6 +102,16 @@ final class Transcript {
             applyAssistant(entry, at: at ?? .now)
         case "user":
             applyUser(entry, at: at ?? .now)
+        case "attachment":
+            // Ajan çalışırken yazılan mesajlar "queued_command" eki olarak kaydediliyor;
+            // tur kesilmediği için bekleyen araçlara dokunmadan yalnızca mesajı alıyoruz.
+            if let a = entry["attachment"] as? [String: Any], a["type"] as? String == "queued_command",
+               (a["commandMode"] as? String ?? "prompt") == "prompt",
+               let text = a["prompt"] as? String, let snippet = Snippet.make(text) {
+                promptCount += 1
+                lastUserText = snippet
+                lastUserAt = at ?? .now
+            }
         default:
             break
         }
@@ -122,6 +140,12 @@ final class Transcript {
         }
 
         guard let blocks = message["content"] as? [[String: Any]] else { return }
+        for block in blocks where block["type"] as? String == "text" {
+            if let text = block["text"] as? String, let snippet = Snippet.make(text) {
+                lastReplyText = snippet
+                lastReplyAt = at
+            }
+        }
         for block in blocks where block["type"] as? String == "tool_use" {
             guard let id = block["id"] as? String, let name = block["name"] as? String else { continue }
             let input = block["input"] as? [String: Any] ?? [:]
@@ -143,7 +167,7 @@ final class Transcript {
             if text.hasPrefix("<task-notification>"), let id = Self.tag("tool-use-id", in: text) {
                 completedTaskToolIDs.insert(id)
             }
-            if !isSystemText { startNewTurn() }
+            if !isSystemText { startNewTurn(text: text, at: at) }
             return
         }
 
@@ -159,6 +183,9 @@ final class Transcript {
                 recent[i].finishedAt = at
                 recent[i].failed = block["is_error"] as? Bool ?? false
             }
+            // Kullanıcının reddettiği ya da izin verilmeyen çağrılar ajanın hatası değil.
+            let rejected = entry["toolUseResult"] as? String == "User rejected tool use"
+            if block["is_error"] as? Bool == true, !rejected { failureStreak += 1 } else { failureStreak = 0 }
         }
         guard !sawResult, entry["isMeta"] as? Bool != true else { return }
         let firstText = blocks.first { $0["type"] as? String == "text" }?["text"] as? String ?? ""
@@ -167,14 +194,16 @@ final class Transcript {
             pending.removeAll()
             lastStopReason = "interrupted"
         } else {
-            startNewTurn()
+            startNewTurn(text: firstText, at: at)
         }
     }
 
     /// Kullanıcının yeni isteği. Yarım kalan araç çağrılarını burada temizliyoruz,
     /// yoksa sonuçları hiç gelmediği için sonsuza dek "çalışıyor" görünürler.
-    private func startNewTurn() {
+    private func startNewTurn(text: String, at: Date) {
         promptCount += 1
+        lastUserText = Snippet.make(text)
+        lastUserAt = at
         pending.removeAll()
         lastStopReason = nil
     }
@@ -195,6 +224,21 @@ final class Transcript {
 
     static func parseDate(_ s: String) -> Date? {
         isoFormatter.date(from: s)
+    }
+}
+
+/// Uzun mesajlardan balona sığacak tek satırlık özet: Markdown işaretleri atılır, ilk cümle alınır.
+enum Snippet {
+    static func make(_ text: String, limit: Int = 90) -> String? {
+        var s = text
+        for mark in ["**", "__", "`", "#", "> "] { s = s.replacingOccurrences(of: mark, with: "") }
+        let line = s.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .map { $0.hasPrefix("- ") || $0.hasPrefix("* ") ? String($0.dropFirst(2)) : $0 }
+            .first { !$0.isEmpty && !$0.hasPrefix("|") && !$0.hasPrefix("<") } ?? ""
+        guard !line.isEmpty else { return nil }
+        if line.count <= limit { return line }
+        return String(line.prefix(limit - 1)).trimmingCharacters(in: .whitespaces) + "…"
     }
 }
 
