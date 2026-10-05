@@ -57,6 +57,41 @@ enum TerminalBridge {
         return false
     }
 
+    /// Oturumu düzgünce kapatır: Claude'a `/exit` gönderir, süreç bitince sekmeyi kapatır.
+    /// Süreç birkaç saniyede kapanmazsa sekmeye dokunmaz; yarım iş kaybolmasın.
+    @MainActor
+    static func close(pid: Int32, completion: @escaping @MainActor (Result<Void, Failure>) -> Void) {
+        guard let tty = tty(of: pid) else { completion(.failure(.noTTY)); return }
+        if case .failure(let f) = send("/exit", toPID: pid) { completion(.failure(f)); return }
+        Task { @MainActor in
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(300))
+                if kill(pid, 0) != 0, errno == ESRCH { break }
+            }
+            guard kill(pid, 0) != 0, errno == ESRCH else {
+                completion(.failure(.scriptError(String(localized: "The session didn't exit; check its terminal."))))
+                return
+            }
+            let script = """
+            tell application id "com.googlecode.iterm2"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        repeat with s in sessions of t
+                            if tty of s is "\(tty)" then
+                                tell s to close
+                                return "ok"
+                            end if
+                        end repeat
+                    end repeat
+                end repeat
+            end tell
+            return "missing"
+            """
+            _ = execute(script)
+            completion(.success(()))
+        }
+    }
+
     /// Oturumun sekmesini seçip terminali öne getirir.
     @MainActor
     static func focus(pid: Int32) -> Result<Void, Failure> {

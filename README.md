@@ -16,10 +16,14 @@ RealityKit ile çizilen gerçek bir 3D sahne (üstteki "3D / Sade" seçimiyle 2D
 - Ajanlar yaptıkları işe göre poz alır: yazar, okur, komut çalışırken arkasına yaslanır, düşünürken eli çenesinde, onay beklerken el kaldırır.
 - Uzun süre emir bekleyen ajan mola verir: kahve, sebil, kanepe, lavabo (tek kişilik, kapılı, içerisi sansürlü 😄); öğle arasında yemek masasına oturur. İş gelince koşarak masasına döner.
 - Art arda 3 hata alan ajan ayağa kalkıp grev yapar.
+- Aynı iş uzadıkça sinirlenir: 1 dk'da 😤, 2 dk'da sansürlü küfür balonu (🤬 #@%&!) ve masaya yumruk, 4 dk'da daha da hiddetli.
 - Mesajınız kapıdan çıkan ışıklı bir zarfla ajana uçar; yanıtı balonda görünür.
+- Kantindeki sunucu kabini ofisin "interneti": web araması, tarayıcı ya da MCP aracı kullanan ajanın masasından kabine yeşil, paketli bir bağlantı uzanır. Çalışan alt ajanla ana ajan arasında mor bağlantı durur.
 - Gün/gece döngüsü gerçek saate bağlı: gece avizeler yanar, çalışan masaların lambası açılır.
-- Fareyle sürükleyerek döndürün, kaydırarak yakınlaştırın, ajana tıklayınca kamera ona gider.
-- Detay panelinden seçili oturuma mesaj yazabilirsiniz; mesaj iTerm2 / Terminal sekmesine sizin yazmışsınız gibi gider (ilk kullanımda macOS otomasyon izni ister).
+- Kamera: sürükle = döndür, ⌥/sağ tıkla sürükle veya iki parmak kaydır = kaydır, kıstır/tekerlek = imlece doğru yakınlaş, çift tık = tüm ofis; ajana tıklayınca kamera onu takip eder. Hazır açılar: izometrik, kuş bakışı, önden.
+- Ajanın ne yaptığı ayrıntılı: kod inceliyor/yazıyor, belge okuyor/yazıyor, görsele bakıyor, derliyor, test ediyor, git, web araması, ekran görüntüsü. Monitörde buna göre kayan kod, belge ya da görsel görünür.
+- Sohbet penceresi: bir oturumla aranızdaki konuşmanın tamamı; araç adımları gruplanır. Alttaki kutudan yazdığınız mesaj iTerm2 sekmesine gider (metin yazılır, sonra gerçek Enter tuşu basılır; ilk kullanımda otomasyon ve Erişilebilirlik izni ister). Dosya/görsel sürükleyince yolu eklenir.
+- Oturumu kapat: onay sonrası Claude'a `/exit` gönderilir, süreç kapanınca sekme kapatılır.
 
 ## Veri nereden geliyor
 

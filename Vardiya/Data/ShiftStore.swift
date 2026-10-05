@@ -102,7 +102,8 @@ actor ShiftScanner {
                 promptCount: transcript.promptCount,
                 startedAt: entry.startedAt,
                 main: main,
-                subagents: subagents
+                subagents: subagents,
+                transcriptURL: url
             ))
         }
         // Masa sırası sabit kalsın: oturum açılış zamanına göre.
@@ -294,15 +295,27 @@ actor ShiftScanner {
 
     static func activity(forTool tool: ToolEvent) -> Activity {
         let d = tool.summary
+        let hint = tool.hint
+        if hint == .web { return .webSearching(d) }
+        if hint == .screenshot { return .capturing(d) }
         switch tool.name {
         case "Read", "NotebookRead":
-            return .reading(d)
-        case "Grep", "Glob", "LS", "ToolSearch", "WebSearch", "WebFetch", "LSP":
+            switch hint {
+            case .image: return .viewing(d)
+            case .document: return .readingDocs(d)
+            default: return .reading(d)
+            }
+        case "Grep", "Glob", "LS", "ToolSearch", "LSP":
             return .searching(d)
         case "Edit", "Write", "MultiEdit", "NotebookEdit":
-            return .writing(d)
+            return hint == .document ? .writingDocs(d) : .writing(d)
         case "Bash", "BashOutput", "Monitor", "KillShell":
-            return .running(d)
+            switch hint {
+            case .build: return .building(d)
+            case .test: return .testing(d)
+            case .git: return .usingGit(d)
+            default: return .running(d)
+            }
         case "Agent", "Task", "Workflow", "SendMessage":
             return .delegating(d)
         case "AskUserQuestion":

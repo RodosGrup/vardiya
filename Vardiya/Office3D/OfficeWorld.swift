@@ -11,6 +11,8 @@ struct OverlayAnchor: Equatable {
     var note: String?
     /// Lavaboda: üstten görünmesin diye karakterin üstüne sansür kutusu.
     var censor: CGPoint?
+    /// Uzun süren işte sinir balonu (😤 / 🤬 #@%!)
+    var mood: String?
 }
 
 /// 3D ofis: sahne kurulumu, ışıklar, kamera, ajanların senkronu ve kare döngüsü.
@@ -43,6 +45,9 @@ final class OfficeWorld {
     @ObservationIgnored private var skyLeft = ModelEntity()
     @ObservationIgnored private var lastLightingUpdate: Date = .distantPast
     @ObservationIgnored private var ceilingLamps: [CeilingLamp] = []
+    @ObservationIgnored private var serverRack: ServerRack?
+    /// Etkin veri bağlantıları: "web:<ajan>" (masa → kabin), "sub:<alt ajan>" (ana masa → alt ajan masası)
+    @ObservationIgnored private var links: [String: DataLink] = [:]
     @ObservationIgnored private var boothDoor: Entity?
     @ObservationIgnored private var boothSign: ModelEntity?
     @ObservationIgnored private var doorAngle: Float = 0
@@ -54,12 +59,11 @@ final class OfficeWorld {
     // Kamera
     @ObservationIgnored let camera = PerspectiveCamera()
     @ObservationIgnored var viewport: CGSize = .init(width: 1000, height: 700)
-    @ObservationIgnored private var yaw: Float = .pi / 4
-    @ObservationIgnored private var pitch: Float = 0.62
-    @ObservationIgnored private var distance: Float = 12
-    @ObservationIgnored private var target: SIMD3<Float> = .zero
-    @ObservationIgnored private var goal: (target: SIMD3<Float>, distance: Float)?
-    @ObservationIgnored private var dragStart: (yaw: Float, pitch: Float)?
+    /// Kameranın o anki hâli ve gitmek istediği hâl; her karede hedefe yumuşakça yaklaşır.
+    @ObservationIgnored private var rig = CameraRig()
+    @ObservationIgnored private var rigGoal = CameraRig()
+    /// Takip edilen ajan; elle oynayınca bırakılır.
+    @ObservationIgnored private var followID: String?
     @ObservationIgnored private let fov: Float = 38
 
     @ObservationIgnored private var selectionRing = ModelEntity()
@@ -113,7 +117,7 @@ final class OfficeWorld {
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(1))
                 let ids = lastShifts.flatMap(\.workers).map(\.id)
-                if focusIndex <= ids.count { onSelect?(ids[focusIndex - 1]); focus(on: ids[focusIndex - 1]); distance = 2.6; goal?.distance = 2.6 }
+                if focusIndex <= ids.count { onSelect?(ids[focusIndex - 1]); focus(on: ids[focusIndex - 1]); rigGoal.distance = 2.6 }
             }
         }
         #endif
@@ -133,6 +137,8 @@ final class OfficeWorld {
         furniture.children.removeAll()
         stations.removeAll()
         ceilingLamps.removeAll()
+        for link in links.values { link.entity.removeFromParent() }
+        links.removeAll()
 
         buildShell(assets)
         buildAmenities(assets)
@@ -268,7 +274,10 @@ final class OfficeWorld {
         }
         place("kitchenCabinet", [layout.canteenX + 0.35, 0, 0.3])
         furniture.addChild(Self.makeWaterCooler(at: layout.waterCooler))
-        place("plantSmall2", [layout.canteenX + 0.9, 0.0, 0.3])
+        place("plantSmall2", [layout.canteenX + 0.85, 0.0, 0.3])
+        let rack = ServerRack(at: layout.serverRack)
+        furniture.addChild(rack.entity)
+        serverRack = rack
 
         // Kapı yanı
         place("coatRackStanding", [layout.door.x + 0.6, 0, 0.3])
@@ -434,6 +443,7 @@ final class OfficeWorld {
             agent.entity.removeFromParent()
             agents[id] = nil
         }
+        updateLinks(dt: dt)
         envelopes.removeAll { env in
             env.tick(dt: dt, parent: effects)
             if env.isFinished { env.entity.removeFromParent() }
@@ -458,6 +468,43 @@ final class OfficeWorld {
         }
     }
 
+    /// Web/MCP kullanan ajanın masasından kabine, çalışan alt ajanla ana ajan arasına ışıklı bağlantılar.
+    private func updateLinks(dt: Float) {
+        var wanted: [String: (from: SIMD3<Float>, to: SIMD3<Float>, kind: DataLink.Kind)] = [:]
+        let parents = Dictionary(lastShifts.flatMap { s in s.subagents.map { ($0.id, s.main.id) } }, uniquingKeysWith: { a, _ in a })
+        var traffic = 0
+        for (id, agent) in agents where !agent.isGone {
+            let a = agent.worker.activity
+            let online: Bool
+            switch a {
+            case .webSearching, .browsing: online = true
+            case .tool(let name, _): online = name != "SendMessage"
+            default: online = false
+            }
+            if online, let rack = serverRack {
+                wanted["web:\(id)"] = (agent.deskTop + [0, 0.1, 0], rack.port, .web)
+                traffic += 1
+            }
+            if a.isBusy, let parentID = parents[id], let parent = agents[parentID] {
+                wanted["sub:\(id)"] = (parent.deskTop + [0, 0.1, 0], agent.deskTop + [0, 0.1, 0], .delegate)
+            }
+        }
+        for (key, w) in wanted where links[key] == nil {
+            let link = DataLink(from: w.from, to: w.to, kind: w.kind)
+            effects.addChild(link.entity)
+            links[key] = link
+        }
+        for (key, link) in links {
+            link.isActive = wanted[key] != nil
+            link.tick(dt: dt, time: time)
+            if link.isFinished {
+                link.entity.removeFromParent()
+                links[key] = nil
+            }
+        }
+        serverRack?.tick(time: time, traffic: traffic)
+    }
+
     /// Ayaktaki ajanlar birbirine fazla yaklaşırsa yavaşça kenara çekilir; iç içe geçmesinler.
     /// Oturanlar sabit engel sayılır, yürüyen onların etrafından dolanır.
     private func separate(dt: Float) {
@@ -466,7 +513,7 @@ final class OfficeWorld {
         for i in all.indices {
             for j in all.indices where j > i {
                 let a = all[i], b = all[j]
-                guard a.isUpright || b.isUpright else { continue }
+                guard a.isUpright || b.isUpright, !a.ignoresCrowd, !b.ignoresCrowd else { continue }
                 var d = a.entity.position - b.entity.position
                 d.y = 0
                 let dist = simd_length(d)
@@ -476,8 +523,12 @@ final class OfficeWorld {
                 let push = (minDist - dist) * min(1, dt * 8)
                 switch (a.isUpright, b.isUpright) {
                 case (true, true):
-                    a.entity.position += dir * push / 2
-                    b.entity.position -= dir * push / 2
+                    // İki yürüyen karşılaşınca geri itmek yerine yürüme yönüne dik, sağa çekilirler;
+                    // böylece birbirinin yolunu kesip kilitlenmezler.
+                    let sideA = a.heading.map { SIMD3<Float>(-$0.z, 0, $0.x) } ?? dir
+                    let sideB = b.heading.map { SIMD3<Float>(-$0.z, 0, $0.x) } ?? -dir
+                    a.entity.position += (dir * 0.5 + sideA * 0.5) * push / 2
+                    b.entity.position += (-dir * 0.5 + sideB * 0.5) * push / 2
                 case (true, false):
                     a.entity.position += dir * push
                 case (false, true):
@@ -522,8 +573,9 @@ final class OfficeWorld {
         var next: [String: OverlayAnchor] = [:]
         var placed: [CGRect] = []
         // Yakındakiler önce yerleşir; çakışan balonlar yukarı doğru sıralanır.
+        let eye = camera.position
         let ordered = agents.filter { !$0.value.isGone }.sorted {
-            simd_distance($0.value.entity.position, camera.position) < simd_distance($1.value.entity.position, camera.position)
+            simd_distance($0.value.entity.position, eye) < simd_distance($1.value.entity.position, eye)
         }
         for (id, agent) in ordered {
             guard let head = project(agent.headPoint), let desk = project(agent.home.desk + [0, 0, 0.42]) else { continue }
@@ -540,7 +592,7 @@ final class OfficeWorld {
             }
             placed.append(rect)
             let censor = agent.isOnToilet ? project(agent.entity.position + [0, 0.3, 0])?.point : nil
-            next[id] = OverlayAnchor(head: point, desk: desk.point, depth: head.depth, note: agent.note, censor: censor)
+            next[id] = OverlayAnchor(head: point, desk: desk.point, depth: head.depth, note: agent.note, censor: censor, mood: agent.mood)
         }
         if next != anchors { anchors = next }
         let now = Date.now
@@ -551,45 +603,98 @@ final class OfficeWorld {
 
     // MARK: - Kamera
 
-    func frameAll(animated: Bool = true) {
+    enum CameraPreset { case isometric, top, front }
+
+    /// Ofisin tamamını sığdıran uzaklık.
+    private var fitDistance: Float {
         let size = max(layout.width, layout.depth)
-        let d = size * 1.05 / tan(fov * .pi / 360) * 0.52
-        goal = (layout.center + [0, 0, 0.2], d)
-        if !animated, let goal {
-            target = goal.target
-            distance = goal.distance
+        return size * 1.05 / tan(fov * .pi / 360) * 0.52
+    }
+
+    func frameAll(animated: Bool = true) {
+        followID = nil
+        rigGoal.target = layout.center + [0, 0, 0.2]
+        rigGoal.distance = fitDistance
+        if !animated { rig = rigGoal }
+    }
+
+    func preset(_ p: CameraPreset) {
+        followID = nil
+        switch p {
+        case .isometric: rigGoal.yaw = .pi / 4; rigGoal.pitch = 0.62
+        case .top: rigGoal.pitch = 1.5
+        case .front: rigGoal.yaw = 0; rigGoal.pitch = 0.42
+        }
+        rigGoal.target = layout.center + [0, 0, 0.2]
+        rigGoal.distance = fitDistance * (p == .top ? 1.05 : 1)
+    }
+
+    /// Ajana yaklaşır ve yürürken peşinden gider.
+    func focus(on id: String) {
+        guard agents[id] != nil else { return }
+        followID = id
+        rigGoal.distance = min(rigGoal.distance, 4.2)
+    }
+
+    /// Sürükleme: ekran pikseli kadar döndürür.
+    func orbit(by delta: CGSize) {
+        rigGoal.yaw -= Float(delta.width) * 0.007
+        rigGoal.pitch = min(1.52, max(0.2, rigGoal.pitch + Float(delta.height) * 0.005))
+    }
+
+    func rotate(by radians: Float) {
+        rigGoal.yaw -= radians
+    }
+
+    /// Kaydırma: ekrandaki hareketi zemine çevirir; uzaktayken daha hızlı kayar.
+    func pan(by delta: CGSize) {
+        followID = nil
+        let right = SIMD3<Float>(cos(rigGoal.yaw), 0, -sin(rigGoal.yaw))
+        let forward = SIMD3<Float>(-sin(rigGoal.yaw), 0, -cos(rigGoal.yaw))
+        let scale = rigGoal.distance * 0.0016
+        rigGoal.target += (-right * Float(delta.width) + forward * Float(delta.height)) * scale
+        clampGoal()
+    }
+
+    /// İmlecin altındaki noktaya doğru yakınlaşır (harita uygulamalarındaki gibi).
+    func zoom(by factor: Float, at point: CGPoint? = nil) {
+        let old = rigGoal.distance
+        rigGoal.distance = min(fitDistance * 1.6, max(1.8, old * factor))
+        let applied = rigGoal.distance / old
+        if let point, followID == nil, let ground = groundPoint(under: point) {
+            rigGoal.target += (ground - rigGoal.target) * (1 - applied)
+            clampGoal()
         }
     }
 
-    func focus(on id: String) {
-        guard let agent = agents[id] else { return }
-        goal = (agent.entity.position + [0, 0.4, 0], 4.2)
-    }
-
-    func orbit(translation: CGSize, began: Bool) {
-        if began || dragStart == nil { dragStart = (yaw, pitch) }
-        guard let start = dragStart else { return }
-        yaw = start.yaw - Float(translation.width) * 0.006
-        pitch = min(1.35, max(0.18, start.pitch + Float(translation.height) * 0.004))
-    }
-
-    func endOrbit() { dragStart = nil }
-
-    func zoom(by factor: Float) {
-        goal = nil
-        distance = min(30, max(2.2, distance * factor))
+    private func clampGoal() {
+        rigGoal.target.x = min(layout.width + 0.5, max(-0.5, rigGoal.target.x))
+        rigGoal.target.z = min(layout.depth + 0.5, max(-0.5, rigGoal.target.z))
+        rigGoal.target.y = max(0, min(1, rigGoal.target.y))
     }
 
     private func updateCamera(dt: Float) {
-        if let goal {
-            let k = 1 - exp(-dt * 4)
-            target += (goal.target - target) * k
-            distance += (goal.distance - distance) * k
-            if simd_distance(target, goal.target) < 0.01, abs(distance - goal.distance) < 0.01 { self.goal = nil }
+        if let id = followID, let agent = agents[id] {
+            rigGoal.target = agent.entity.position * [1, 0, 1] + [0, 0.4, 0]
         }
-        let offset = SIMD3<Float>(cos(pitch) * sin(yaw), sin(pitch), cos(pitch) * cos(yaw)) * distance
-        camera.position = target + offset
-        camera.look(at: target, from: camera.position, relativeTo: nil)
+        rig.approach(rigGoal, k: 1 - exp(-dt * 9))
+        camera.position = rig.position
+        camera.look(at: rig.target, from: camera.position, relativeTo: nil)
+    }
+
+    /// Ekran noktasından çıkan ışının zemini (y=0) kestiği yer.
+    private func groundPoint(under point: CGPoint) -> SIMD3<Float>? {
+        let f = 1 / tan(fov * .pi / 360)
+        let aspect = Float(viewport.width / max(1, viewport.height))
+        let ndcX = Float(point.x / max(1, viewport.width)) * 2 - 1
+        let ndcY = 1 - Float(point.y / max(1, viewport.height)) * 2
+        let dirCam = SIMD4<Float>(ndcX * aspect / f, ndcY / f, -1, 0)
+        let m = camera.transformMatrix(relativeTo: nil)
+        let dir = m * dirCam
+        let origin = camera.position(relativeTo: nil)
+        guard dir.y < -0.001 else { return nil }
+        let t = -origin.y / dir.y
+        return origin + SIMD3(dir.x, dir.y, dir.z) * t
     }
 
     /// Dünya noktasını görünüm koordinatına çevirir (SwiftUI balonları için).
@@ -682,6 +787,25 @@ final class OfficeWorld {
         ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: h), end: CGPoint(x: 0, y: 0), options: [])
         let image = ctx.makeImage()!
         return try! EnvironmentResource(equirectangular: image, withName: "vardiya-sky")
+    }
+}
+
+/// Kameranın küre koordinatları: hedef nokta etrafında yaw/pitch/uzaklık.
+struct CameraRig {
+    var yaw: Float = .pi / 4
+    var pitch: Float = 0.62
+    var distance: Float = 12
+    var target: SIMD3<Float> = .zero
+
+    var position: SIMD3<Float> {
+        target + SIMD3(cos(pitch) * sin(yaw), sin(pitch), cos(pitch) * cos(yaw)) * distance
+    }
+
+    mutating func approach(_ goal: CameraRig, k: Float) {
+        yaw += (goal.yaw - yaw) * k
+        pitch += (goal.pitch - pitch) * k
+        distance += (goal.distance - distance) * k
+        target += (goal.target - target) * k
     }
 }
 

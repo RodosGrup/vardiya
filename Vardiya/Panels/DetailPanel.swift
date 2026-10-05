@@ -60,7 +60,7 @@ struct DetailPanel: View {
         }
 
         if worker.kind == .main {
-            Composer(shift: shift)
+            ChatOpener(shift: shift)
         }
 
         if worker.lastUserText != nil || worker.lastReplyText != nil {
@@ -97,76 +97,6 @@ struct DetailPanel: View {
         case .done: return String(localized: "Handed the result back")
         case .asking: return String(localized: "Has a question for you")
         default: return worker.subtitle
-        }
-    }
-
-    /// Seçili oturuma terminal üzerinden mesaj gönderir; Claude onu sizin yazdığınız bir istek gibi alır.
-    private struct Composer: View {
-        let shift: Shift
-        @State private var text = ""
-        @State private var feedback: (text: String, isError: Bool)?
-        @FocusState private var focused: Bool
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 6) {
-                // Geniş, çok satırlı yazma alanı; gönder düğmesi sağ altta.
-                ZStack(alignment: .bottomTrailing) {
-                    TextField(String(localized: "Message \(shift.project)…"), text: $text, axis: .vertical)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13))
-                        .lineLimit(3...8)
-                        .focused($focused)
-                        .onSubmit(send)
-                        .padding(.leading, 10)
-                        .padding(.trailing, 44)
-                        .padding(.vertical, 9)
-                        .frame(minHeight: 72, alignment: .topLeading)
-                        .background(Theme.mutedSoft, in: RoundedRectangle(cornerRadius: 10))
-                        .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(focused ? Theme.accent : Theme.border) }
-                    Button(action: send) {
-                        Image(systemName: "paperplane.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
-                            .background(text.isEmpty ? Theme.muted : Theme.accent, in: RoundedRectangle(cornerRadius: 8))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .help(Text("Send to the session's terminal"))
-                    .padding(6)
-                }
-                HStack {
-                    if let feedback {
-                        Label(feedback.text, systemImage: feedback.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(feedback.isError ? Theme.warning : Theme.success)
-                            .lineLimit(2)
-                    }
-                    Spacer()
-                    Button {
-                        if case .failure(let f) = TerminalBridge.focus(pid: shift.pid) {
-                            feedback = (f.message, true)
-                        }
-                    } label: {
-                        Label("Open terminal", systemImage: "terminal")
-                            .font(.system(size: 11))
-                    }
-                    .buttonStyle(.link)
-                }
-            }
-            .onChange(of: shift.id) { _, _ in text = ""; feedback = nil }
-        }
-
-        private func send() {
-            let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !message.isEmpty else { return }
-            switch TerminalBridge.send(message, toPID: shift.pid) {
-            case .success:
-                text = ""
-                feedback = (String(localized: "Sent. The envelope is on its way."), false)
-            case .failure(let f):
-                feedback = (f.message, true)
-            }
         }
     }
 
@@ -264,6 +194,200 @@ struct StatusPill: View {
             .background(activity.softTint, in: RoundedRectangle(cornerRadius: 6))
             .lineLimit(1)
             .fixedSize()
+    }
+}
+
+/// Panelde mesaj kutusu görünümünde bir düğme: tıklayınca sohbet penceresi açılır,
+/// konuşmanın tamamı orada görünür ve mesaj oradan yazılır.
+struct ChatOpener: View {
+    let shift: Shift
+    @Environment(\.openWindow) private var openWindow
+    @State private var feedback: String?
+    @State private var confirmClose = false
+    @State private var closing = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                openWindow(id: "chat", value: shift.id)
+            } label: {
+                HStack(alignment: .top) {
+                    Text("Message \(shift.project)…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.muted)
+                    Spacer()
+                    Image(systemName: "bubble.left.and.text.bubble.right")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.accent)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
+                .background(Theme.mutedSoft, in: RoundedRectangle(cornerRadius: 10))
+                .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border) }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(Text("Open the chat with this session"))
+            HStack {
+                if let feedback {
+                    Label(feedback, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.warning)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Button(role: .destructive) {
+                    confirmClose = true
+                } label: {
+                    Label(closing ? String(localized: "Closing…") : String(localized: "End session"), systemImage: "xmark.circle")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.link)
+                .tint(Theme.warning)
+                .disabled(closing)
+                Button {
+                    if case .failure(let f) = TerminalBridge.focus(pid: shift.pid) { feedback = f.message }
+                } label: {
+                    Label("Open terminal", systemImage: "terminal").font(.system(size: 11))
+                }
+                .buttonStyle(.link)
+            }
+        }
+        .confirmationDialog(String(localized: "End the \(shift.project) session?"), isPresented: $confirmClose) {
+            Button(String(localized: "End session"), role: .destructive) {
+                closing = true
+                TerminalBridge.close(pid: shift.pid) { result in
+                    closing = false
+                    if case .failure(let f) = result { feedback = f.message }
+                }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            if shift.workers.contains(where: { $0.activity.isBusy }) {
+                Text("This agent is working right now; its current task will stop. Claude gets /exit and the terminal tab closes.")
+            } else {
+                Text("Claude gets /exit and the terminal tab closes. The conversation stays in Claude's history.")
+            }
+        }
+    }
+}
+
+/// Mesaj yazma kutusu: gönderince metin oturumun terminal sekmesine gider.
+/// Dosya ya da görsel sürükleyip bırakınca yolu kutuya yazılır (iTerm2'deki gibi).
+struct MessageComposer: View {
+    let shift: Shift
+    var autofocus = false
+    @State private var text = ""
+    @State private var feedback: (text: String, isError: Bool)?
+    @State private var dropTargeted = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack(alignment: .bottomTrailing) {
+                TextField(String(localized: "Message \(shift.project)…"), text: $text, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .lineLimit(3...10)
+                    .focused($focused)
+                    .onSubmit(send)
+                    .padding(.leading, 10)
+                    .padding(.trailing, 44)
+                    .padding(.vertical, 9)
+                    .frame(minHeight: 72, alignment: .topLeading)
+                    .background(Theme.mutedSoft, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(dropTargeted ? Theme.accent : (focused ? Theme.accent : Theme.border),
+                                          style: StrokeStyle(lineWidth: dropTargeted ? 2 : 1, dash: dropTargeted ? [5, 4] : []))
+                    }
+                Button(action: send) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(text.isEmpty ? Theme.muted : Theme.accent, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .help(Text("Send to the session's terminal"))
+                .padding(6)
+            }
+            .onDrop(of: [.fileURL, .image], isTargeted: $dropTargeted, perform: handleDrop)
+
+            HStack {
+                if let feedback {
+                    Label(feedback.text, systemImage: feedback.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(feedback.isError ? Theme.warning : Theme.success)
+                        .lineLimit(2)
+                } else {
+                    Text("Drop a file or image to add its path")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Button {
+                    if case .failure(let f) = TerminalBridge.focus(pid: shift.pid) { feedback = (f.message, true) }
+                } label: {
+                    Label("Open terminal", systemImage: "terminal").font(.system(size: 11))
+                }
+                .buttonStyle(.link)
+            }
+        }
+        .onAppear { if autofocus { focused = true } }
+        .onChange(of: shift.id) { _, _ in text = ""; feedback = nil }
+    }
+
+    private func send() {
+        let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+        switch TerminalBridge.send(message, toPID: shift.pid) {
+        case .success:
+            text = ""
+            feedback = (String(localized: "Sent. The envelope is on its way."), false)
+        case .failure(let f):
+            feedback = (f.message, true)
+        }
+    }
+
+    /// Bırakılan dosyaların yolunu, terminaldeki gibi boşlukları kaçışlayarak ekler.
+    /// Dosyası olmayan görseller (tarayıcıdan sürüklenen) geçici bir PNG'ye kaydedilir.
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        var handled = false
+        for provider in providers {
+            if provider.canLoadObject(ofClass: URL.self) {
+                handled = true
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, url.isFileURL else { return }
+                    Task { @MainActor in insert(path: url.path) }
+                }
+            } else if provider.canLoadObject(ofClass: NSImage.self) {
+                handled = true
+                _ = provider.loadObject(ofClass: NSImage.self) { image, _ in
+                    guard let image = image as? NSImage, let path = Self.saveTemporary(image) else { return }
+                    Task { @MainActor in insert(path: path) }
+                }
+            }
+        }
+        return handled
+    }
+
+    private func insert(path: String) {
+        let escaped = path.replacingOccurrences(of: " ", with: "\\ ")
+        if !text.isEmpty, !text.hasSuffix(" ") { text += " " }
+        text += escaped + " "
+        focused = true
+    }
+
+    nonisolated private static func saveTemporary(_ image: NSImage) -> String? {
+        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        let dir = FileManager.default.temporaryDirectory.appending(path: "Vardiya", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: "drop-\(Int(Date.now.timeIntervalSince1970)).png")
+        guard (try? png.write(to: url)) != nil else { return nil }
+        return url.path
     }
 }
 

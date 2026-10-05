@@ -82,6 +82,30 @@ final class Agent3D {
         return false
     }
 
+    /// Yürüme yönü; çarpışmada yana çekilmek için.
+    private(set) var heading: SIMD3<Float>?
+    /// Takılınca kısa süre kalabalığı yok sayar ("pardon, geçebilir miyim").
+    private(set) var passThroughUntil: Float = -1
+    private var bestDistance: Float = .greatestFiniteMagnitude
+    private var stuckTime: Float = 0
+
+    var ignoresCrowd: Bool { now < passThroughUntil }
+
+    /// Hedefe yaklaşamıyorsa (başkaları itiyor) 1,5 sn sonra 2 sn'liğine içinden geçer.
+    private func trackProgress(distance: Float, dt: Float) {
+        if distance < bestDistance - 0.02 {
+            bestDistance = distance
+            stuckTime = 0
+        } else {
+            stuckTime += dt
+            if stuckTime > 1.5 {
+                passThroughUntil = now + 2
+                stuckTime = 0
+                bestDistance = distance
+            }
+        }
+    }
+
     var isUpright: Bool {
         if case .seated = mode { return false }
         if case .visiting(.sofa, _) = mode { return false }
@@ -93,6 +117,32 @@ final class Agent3D {
 
     /// Hayat olayının balonda görünen kısa açıklaması (molada, uyukluyor…).
     private(set) var note: String?
+
+    /// Aynı iş ne kadar uzun sürerse o kadar sinirlenir: 0 sakin, 1 (>1 dk), 2 (>2 dk), 3 (>4 dk).
+    var frustration: Int {
+        guard worker.activity.isBusy, let since = worker.activitySince else { return 0 }
+        let e = Date.now.timeIntervalSince(since)
+        return e > 240 ? 3 : (e > 120 ? 2 : (e > 60 ? 1 : 0))
+    }
+
+    /// Sinir balonundaki sansürlü küfür; semboller her yarım saniyede değişir.
+    var mood: String? {
+        let level = frustration
+        guard level > 0 else { return nil }
+        if level == 1 { return "😤" }
+        let symbols = Array("#@$%&*!?")
+        let tick = Int(now * 2)
+        let count = level == 2 ? 5 : 7
+        // Her yarım saniyede değişen, art arda aynı sembolü tekrarlamayan bir dizi
+        var last = -1
+        let grawlix = String((0..<count).map { i -> Character in
+            var k = (tick * 5 + i * 3 + i * i * 7 + spotIndex) % symbols.count
+            if k == last { k = (k + 3) % symbols.count }
+            last = k
+            return symbols[k]
+        })
+        return level == 2 ? "🤬 " + grawlix + "!" : "🤬🤬 " + grawlix + "!!"
+    }
 
     /// Oturuyken kalça yüksekliği; Kenney sandalyesinin oturağına denk geliyor.
     private static let sitHeight: Float = 0.19
@@ -319,6 +369,8 @@ final class Agent3D {
             path = route(from: entity.position, to: destination)
         }
         mode = .walking(path: path, then: then, speed: speed)
+        bestDistance = .greatestFiniteMagnitude
+        stuckTime = 0
         switch then {
         case .spot(.coffee): note = String(localized: "Coffee break")
         case .spot(.toilet): note = String(localized: "Restroom")
@@ -385,15 +437,21 @@ final class Agent3D {
             p.y = 0
             let d = next - p
             let dist = simd_length(d)
-            if dist < 0.03 {
+            // Ara noktalar geniş toleransla geçilir; kalabalıkta herkes aynı noktaya tam basamaz.
+            // Yalnızca son durakta (koltuk, tezgâh) hassas durulur.
+            let tolerance: Float = path.count > 1 ? 0.25 : 0.03
+            if dist < tolerance {
+                bestDistance = .greatestFiniteMagnitude
                 path.removeFirst()
                 mode = .walking(path: path, then: then, speed: speed)
                 if path.isEmpty { arrive(then) }
                 return
             }
+            trackProgress(distance: dist, dt: dt)
             let step = min(dist, speed * dt)
             p += d / dist * step
             entity.position = p
+            heading = d / dist
             turn(toward: atan2(d.x, d.z), dt: dt, rate: 10)
         case .seated:
             entity.position = home.seat + [0, Self.sitHeight, 0]
@@ -416,6 +474,7 @@ final class Agent3D {
         switch then {
         case .seat:
             mode = .seated
+            heading = nil
             note = nil
             nextBreakAt = now + Float.random(in: 240...480)
             #if DEBUG
@@ -513,8 +572,15 @@ final class Agent3D {
         apply(pose, dt: dt)
     }
 
-    /// Oturuyken yaptığı işe göre üst gövde: yazıyor, okuyor, izliyor, düşünüyor, el kaldırıyor…
+    /// Oturuş pozu; iş uzadıysa üstüne sinir hareketleri eklenir.
     private func seatedPose(t: Float) -> Pose {
+        var pose = calmSeatedPose(t: t)
+        if frustration > 0 { addFrustration(to: &pose, t: t) }
+        return pose
+    }
+
+    /// Oturuyken yaptığı işe göre üst gövde: yazıyor, okuyor, izliyor, düşünüyor, el kaldırıyor…
+    private func calmSeatedPose(t: Float) -> Pose {
         var pose = animations.sample("sit", at: 0)
         let x: SIMD3<Float> = [1, 0, 0], y: SIMD3<Float> = [0, 1, 0], z: SIMD3<Float> = [0, 0, 1]
         let a = worker.activity
@@ -542,10 +608,20 @@ final class Agent3D {
         }
 
         switch a {
-        case .writing, .tool, .browsing:
-            typing(speed: 1)
+        case .writing, .tool, .browsing, .writingDocs, .usingGit:
+            if case .writingDocs = a { typing(speed: 0.8) } else { typing(speed: 1) }
             pose["head"] = (rot(0.06 + 0.03 * sin(t * 2), x), nil)
-        case .reading, .searching:
+        case .viewing, .capturing:
+            // Görsele dikkatle bakıyor: ekrana iyice eğilmiş, bir eli çenesinde
+            armPose(&pose, left: [-0.08, -0.7, 0.75], right: [0.3, 0.6, 0.7])
+            pose["torso"] = (rot(0.2, x), nil)
+            pose["head"] = (rot(0.12, x) * rot(0.06 * sin(t * 0.6), y), nil)
+        case .building, .testing:
+            // Derleme/test sürerken arkasına yaslanıp çıktıyı izliyor, ara ara bir tuşa basıyor
+            typing(speed: 0.35)
+            pose["torso"] = (rot(-0.06, x), nil)
+            pose["head"] = (rot(-0.04, x), nil)
+        case .reading, .searching, .readingDocs, .webSearching:
             // Elleri masada, ekrana eğilmiş okuyor
             armPose(&pose, left: [-0.08, -0.75, 0.7])
             pose["torso"] = (rot(0.08, x), nil)
@@ -582,6 +658,23 @@ final class Agent3D {
             }
         }
         return pose
+    }
+
+    /// Sinirlenen ajan: kafasını sallar; seviye 2'den sonra ara ara yumruğunu masaya vurur.
+    private func addFrustration(to pose: inout Pose, t: Float) {
+        let level = frustration
+        let x: SIMD3<Float> = [1, 0, 0], y: SIMD3<Float> = [0, 1, 0]
+        let shake = level >= 3 ? 0.25 * sin(t * 9) : 0.12 * sin(t * 5)
+        pose["head"] = (rot(Float(shake), y) * rot(-0.05, x), nil)
+        guard level >= 2 else { return }
+        // Her 3 sn'de (seviye 3'te 1,6 sn'de) bir yumruk: kalk, in.
+        let period: Float = level >= 3 ? 1.6 : 3
+        let phase = t.truncatingRemainder(dividingBy: period)
+        if phase < 0.5 {
+            let lift = phase < 0.25 ? phase / 0.25 : 1 - (phase - 0.25) / 0.25
+            armPose(&pose, left: [-0.12, -0.45, 1], right: [0.1, -0.5 + 1.1 * lift, 0.8])
+            pose["torso"] = (rot(0.12 + 0.06 * lift, x), nil)
+        }
     }
 
     /// Hedef poza yumuşak geçiş; klipler arası sert sıçrama olmasın.

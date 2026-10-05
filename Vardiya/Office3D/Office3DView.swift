@@ -7,9 +7,18 @@ struct Office3DView: View {
     @Environment(ShiftStore.self) private var store
     @State private var world = OfficeWorld()
     @State private var subscription: EventSubscription?
-    @State private var dragging = false
-    @State private var scrollMonitor: Any?
+    @State private var lastDrag: CGSize = .zero
+    @State private var lastMagnify: CGFloat = 1
+    @State private var lastRotation: Angle = .zero
+    @State private var eventMonitor: Any?
     @State private var hovering = false
+    @State private var hoverPoint: CGPoint?
+    /// 3D alanın pencere içindeki yeri; fare olaylarının sahnenin üstünde olup olmadığını buradan anlıyoruz.
+    @State private var sceneFrame: CGRect = .zero
+    /// Sağ/orta tuşla sürüklemede bir önceki fare konumu (pencere koordinatı).
+    @State private var lastDragPoint: CGPoint?
+    /// Sahnenin bulunduğu pencere; sohbet gibi başka pencerelerdeki kaydırmalar sahneyi oynatmasın.
+    @State private var hostWindow = WeakWindow()
     /// RealityView'u yeniden kurmak için. Pencere başka bir pencerenin arkasında açıldığında
     /// çizim hiç başlamayabiliyor; o durumda sahne birkaç saniye kare üretmezse görünümü tazeliyoruz.
     @State private var renderKey = 0
@@ -33,24 +42,48 @@ struct Office3DView: View {
                         world.tapped(value.entity)
                     }
                 )
+                // Boş alana çift tık: tüm ofis
+                .simultaneousGesture(SpatialTapGesture(count: 2).onEnded { _ in world.frameAll() })
+                // Sürükle: döndür; ⌥ ile sürükle: kaydır
                 .simultaneousGesture(
-                    DragGesture(minimumDistance: 4)
+                    DragGesture(minimumDistance: 3)
                         .onChanged { v in
-                            world.orbit(translation: v.translation, began: !dragging)
-                            dragging = true
+                            let delta = CGSize(width: v.translation.width - lastDrag.width,
+                                               height: v.translation.height - lastDrag.height)
+                            lastDrag = v.translation
+                            let flags = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
+                            if flags.contains(.option) {
+                                world.pan(by: delta)
+                            } else {
+                                world.orbit(by: delta)
+                            }
                         }
-                        .onEnded { _ in
-                            dragging = false
-                            world.endOrbit()
-                        }
+                        .onEnded { _ in lastDrag = .zero }
                 )
+                // Kıstır: yakınlaş. Değer hareketin başından beri toplam; farkını uyguluyoruz.
                 .simultaneousGesture(
-                    MagnifyGesture().onChanged { v in
-                        world.zoom(by: Float(1 / max(0.5, min(1.5, v.magnification))) * 0.98 + 0.02)
-                    }
+                    MagnifyGesture()
+                        .onChanged { v in
+                            let step = lastMagnify / max(0.01, v.magnification)
+                            lastMagnify = v.magnification
+                            world.zoom(by: Float(step), at: hoverPoint)
+                        }
+                        .onEnded { _ in lastMagnify = 1 }
+                )
+                // İki parmakla çevir: döndür
+                .simultaneousGesture(
+                    RotateGesture()
+                        .onChanged { v in
+                            world.rotate(by: Float((v.rotation - lastRotation).radians))
+                            lastRotation = v.rotation
+                        }
+                        .onEnded { _ in lastRotation = .zero }
                 )
                 .onContinuousHover { phase in
-                    if case .active = phase { hovering = true } else { hovering = false }
+                    switch phase {
+                    case .active(let p): hovering = true; hoverPoint = p
+                    case .ended: hovering = false; hoverPoint = nil
+                    }
                 }
 
                 if world.isReady {
@@ -61,9 +94,10 @@ struct Office3DView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .onAppear { world.viewport = geo.size; installScroll() }
-            .onChange(of: geo.size) { _, size in world.viewport = size }
-            .onDisappear { removeScroll() }
+            .background(WindowReader(holder: hostWindow))
+            .onAppear { world.viewport = geo.size; sceneFrame = geo.frame(in: .global); installMonitors() }
+            .onChange(of: geo.size) { _, size in world.viewport = size; sceneFrame = geo.frame(in: .global) }
+            .onDisappear { removeMonitors() }
         }
         .onChange(of: store.shifts) { _, shifts in world.sync(shifts) }
         .onReceive(watchdog) { _ in
@@ -81,33 +115,93 @@ struct Office3DView: View {
         }
     }
 
-    /// Fare tekerleği / iki parmak kaydırma ile yakınlaştırma.
-    private func installScroll() {
-        guard scrollMonitor == nil else { return }
+    /// Trackpad'de iki parmak kaydırma = kaydır (⌘ ile yakınlaş); fare tekerleği = imlece doğru yakınlaş;
+    /// sağ ya da orta tuşla sürükleme = kaydır.
+    private func installMonitors() {
+        guard eventMonitor == nil else { return }
         let world = world
-        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-            guard hovering else { return event }
-            let delta = Float(event.scrollingDeltaY) * (event.hasPreciseScrollingDeltas ? 0.004 : 0.04)
-            world.zoom(by: exp(-delta))
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .rightMouseDown, .otherMouseDown, .rightMouseDragged, .otherMouseDragged]) { event in
+            if event.type == .rightMouseDown || event.type == .otherMouseDown {
+                lastDragPoint = event.locationInWindow
+                return event
+            }
+            // Olay ana pencereden mi ve 3D alanın üstünde mi? (SwiftUI global koordinatı = pencere, üstten aşağı)
+            guard let window = event.window, window === hostWindow.window,
+                  let content = window.contentView else { return event }
+            let p = event.locationInWindow
+            let local = CGPoint(x: p.x, y: content.bounds.height - p.y)
+            guard sceneFrame.contains(local) else { return event }
+            let point = CGPoint(x: local.x - sceneFrame.minX, y: local.y - sceneFrame.minY)
+            switch event.type {
+            case .scrollWheel:
+                if event.hasPreciseScrollingDeltas, !event.modifierFlags.contains(.command) {
+                    world.pan(by: CGSize(width: -event.scrollingDeltaX, height: -event.scrollingDeltaY))
+                } else {
+                    let delta = Float(event.scrollingDeltaY) * (event.hasPreciseScrollingDeltas ? 0.006 : 0.05)
+                    world.zoom(by: exp(-delta), at: point)
+                }
+            default:
+                // Olayın kendi delta'sı her zaman dolu gelmiyor; konum farkından hesaplıyoruz.
+                let now = event.locationInWindow
+                let prev = lastDragPoint ?? now
+                lastDragPoint = now
+                world.pan(by: CGSize(width: now.x - prev.x, height: prev.y - now.y))
+            }
             return nil
         }
     }
 
-    private func removeScroll() {
-        if let m = scrollMonitor { NSEvent.removeMonitor(m) }
-        scrollMonitor = nil
+    private func removeMonitors() {
+        if let m = eventMonitor { NSEvent.removeMonitor(m) }
+        eventMonitor = nil
+    }
+}
+
+/// Görünümün içinde bulunduğu NSWindow'u yakalar.
+final class WeakWindow {
+    weak var window: NSWindow?
+}
+
+private struct WindowReader: NSViewRepresentable {
+    let holder: WeakWindow
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { holder.window = view.window }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        if holder.window == nil { DispatchQueue.main.async { holder.window = view.window } }
     }
 }
 
 private struct CameraControls: View {
     let world: OfficeWorld
+    @State private var showHelp = false
 
     var body: some View {
         HStack(spacing: 6) {
-            Button { world.zoom(by: 0.85) } label: { Image(systemName: "plus.magnifyingglass") }
-            Button { world.zoom(by: 1.18) } label: { Image(systemName: "minus.magnifyingglass") }
+            Button { world.zoom(by: 0.8) } label: { Image(systemName: "plus.magnifyingglass") }
+                .help(Text("Zoom in"))
+            Button { world.zoom(by: 1.25) } label: { Image(systemName: "minus.magnifyingglass") }
+                .help(Text("Zoom out"))
+            Divider().frame(height: 14)
+            Menu {
+                Button("Isometric") { world.preset(.isometric) }
+                Button("Top down") { world.preset(.top) }
+                Button("Front") { world.preset(.front) }
+            } label: {
+                Image(systemName: "camera.viewfinder")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(Text("Camera angle"))
             Button { world.frameAll() } label: { Image(systemName: "arrow.up.left.and.down.right.magnifyingglass") }
                 .help(Text("Show whole office"))
+            Button { showHelp.toggle() } label: { Image(systemName: "questionmark.circle") }
+                .popover(isPresented: $showHelp, arrowEdge: .top) { CameraHelp() }
         }
         .buttonStyle(.borderless)
         .font(.system(size: 13, weight: .semibold))
@@ -116,6 +210,30 @@ private struct CameraControls: View {
         .padding(.vertical, 7)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 9))
         .overlay { RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.border) }
+    }
+}
+
+/// Kamera kısayolları
+private struct CameraHelp: View {
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 7) {
+            row("Drag", "Rotate")
+            row("⌥ Drag · Right drag", "Pan")
+            row("Two-finger scroll", "Pan")
+            row("Pinch · Mouse wheel · ⌘ Scroll", "Zoom toward the cursor")
+            row("Two-finger rotate", "Rotate")
+            row("Click an agent", "Follow the agent")
+            row("Double-click", "Show whole office")
+        }
+        .font(.system(size: 12))
+        .padding(14)
+    }
+
+    private func row(_ gesture: LocalizedStringKey, _ action: LocalizedStringKey) -> some View {
+        GridRow {
+            Text(gesture).foregroundStyle(Theme.textSecondary)
+            Text(action).foregroundStyle(Theme.text)
+        }
     }
 }
 
@@ -138,6 +256,10 @@ private struct OverlayLayer: View {
                         .scaleEffect(scale)
                         .position(anchor.desk)
                     VStack(spacing: 4) {
+                        if let mood = anchor.mood {
+                            MoodBubble(text: mood)
+                                .transition(.scale(scale: 0.5, anchor: .bottom).combined(with: .opacity))
+                        }
                         if let bubble = world.speech[id] {
                             SpeechView(bubble: bubble)
                                 .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
@@ -153,6 +275,7 @@ private struct OverlayLayer: View {
                     .alignmentGuide(.bottom) { $0[.bottom] }
                     .position(x: anchor.head.x, y: anchor.head.y - 22 * scale)
                     .animation(.snappy, value: world.speech[id])
+                    .animation(.bouncy, value: anchor.mood == nil)
                 }
             }
         }
@@ -183,6 +306,28 @@ private struct CensorBox: View {
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Çizgi roman tarzı sinir balonu; hafifçe titrer.
+private struct MoodBubble: View {
+    let text: String
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.08)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            Text(text)
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color(red: 0.85, green: 0.15, blue: 0.12))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(Color(red: 1, green: 0.95, blue: 0.9), in: Capsule())
+                .overlay { Capsule().strokeBorder(Color(red: 0.85, green: 0.15, blue: 0.12), lineWidth: 1.5) }
+                .rotationEffect(.degrees(sin(t * 30) * (text.hasPrefix("🤬🤬") ? 3 : 1.5)))
+                .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+        }
+        .fixedSize()
         .allowsHitTesting(false)
     }
 }

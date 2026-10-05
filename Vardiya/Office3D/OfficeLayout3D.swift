@@ -71,6 +71,8 @@ struct OfficeLayout3D {
         return [(t + [0, 0, -0.62], 0), (t + [0.58, 0, 0], -.pi / 2), (t + [0, 0, 0.62], .pi), (t + [-0.58, 0, 0], .pi / 2)]
     }
     var waterCooler: SIMD3<Float> { [canteenX + Self.canteenWidth - 0.35, 0, 0.3] }
+    /// Sunucu kabini: ofisin "interneti"; web ve MCP trafiği buraya bağlanır.
+    var serverRack: SIMD3<Float> { [canteenX + 1.3, 0, 0.28] }
     var waterSpot: SIMD3<Float> { waterCooler + [0, 0, 0.5] }
 
     func roomOrigin(_ index: Int) -> SIMD2<Float> {

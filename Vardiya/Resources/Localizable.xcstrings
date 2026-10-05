@@ -110,6 +110,16 @@
         }
       }
     },
+    "%lld steps": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld adım"
+          }
+        }
+      }
+    },
     "%lld tool calls": {
       "localizations": {
         "tr": {
@@ -172,6 +182,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tarayıcıda"
+          }
+        }
+      }
+    },
+    "Building": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Derliyor"
+          }
+        }
+      }
+    },
+    "Camera angle": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera açısı"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vazgeç"
+          }
+        }
+      }
+    },
+    "Chat · %@": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sohbet · %@"
+          }
+        }
+      }
+    },
+    "Claude gets /exit and the terminal tab closes. The conversation stays in Claude's history.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude'a /exit gönderilir ve terminal sekmesi kapanır. Konuşma Claude'un geçmişinde kalır."
+          }
+        }
+      }
+    },
+    "Click an agent": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajana tıkla"
+          }
+        }
+      }
+    },
+    "Closing…": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapatılıyor…"
           }
         }
       }
@@ -246,6 +326,16 @@
         }
       }
     },
+    "Double-click": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çift tıkla"
+          }
+        }
+      }
+    },
     "Dozing off": {
       "localizations": {
         "tr": {
@@ -256,12 +346,72 @@
         }
       }
     },
+    "Drag": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sürükle"
+          }
+        }
+      }
+    },
+    "Drop a file or image to add its path": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosya ya da görsel bırakırsanız yolu eklenir"
+          }
+        }
+      }
+    },
+    "End session": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturumu kapat"
+          }
+        }
+      }
+    },
+    "End the %@ session?": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ oturumu kapatılsın mı?"
+          }
+        }
+      }
+    },
     "Finished and waiting for your next message": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "İşini bitirdi, sıradaki mesajınızı bekliyor"
+          }
+        }
+      }
+    },
+    "Follow the agent": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajanı takip et"
+          }
+        }
+      }
+    },
+    "Front": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Önden"
           }
         }
       }
@@ -302,6 +452,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sürüyor"
+          }
+        }
+      }
+    },
+    "Isometric": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İzometrik"
           }
         }
       }
@@ -352,6 +512,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bu oturuma ait bir iTerm2 ya da Terminal sekmesi bulunamadı."
+          }
+        }
+      }
+    },
+    "No messages yet": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henüz mesaj yok"
           }
         }
       }
@@ -426,12 +596,32 @@
         }
       }
     },
+    "Open the chat with this session": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu oturumla sohbeti aç"
+          }
+        }
+      }
+    },
     "Output": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Çıktı"
+          }
+        }
+      }
+    },
+    "Pan": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydır"
           }
         }
       }
@@ -446,12 +636,32 @@
         }
       }
     },
+    "Pinch · Mouse wheel · ⌘ Scroll": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kıstır · Fare tekerleği · ⌘ ile kaydır"
+          }
+        }
+      }
+    },
     "Project": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Proje"
+          }
+        }
+      }
+    },
+    "Queued — the agent will read it at the next step": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sırada; ajan bir sonraki adımda okuyacak"
           }
         }
       }
@@ -472,6 +682,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Okuyor"
+          }
+        }
+      }
+    },
+    "Reading docs": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belge okuyor"
           }
         }
       }
@@ -506,6 +726,26 @@
         }
       }
     },
+    "Reviewing code": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod inceliyor"
+          }
+        }
+      }
+    },
+    "Rotate": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Döndür"
+          }
+        }
+      }
+    },
     "Running": {
       "localizations": {
         "tr": {
@@ -532,6 +772,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arıyor"
+          }
+        }
+      }
+    },
+    "Searching the web": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Web'de arıyor"
           }
         }
       }
@@ -616,12 +866,42 @@
         }
       }
     },
+    "Taking a screenshot": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran görüntüsü alıyor"
+          }
+        }
+      }
+    },
     "Task": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Görev"
+          }
+        }
+      }
+    },
+    "Testing": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test ediyor"
+          }
+        }
+      }
+    },
+    "The session didn't exit; check its terminal.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturum kapanmadı; terminaline bakın."
           }
         }
       }
@@ -656,6 +936,36 @@
         }
       }
     },
+    "This agent is working right now; its current task will stop. Claude gets /exit and the terminal tab closes.": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu ajan şu an çalışıyor; yaptığı iş yarıda kalacak. Claude'a /exit gönderilir ve terminal sekmesi kapanır."
+          }
+        }
+      }
+    },
+    "This session has ended": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu oturum kapandı"
+          }
+        }
+      }
+    },
+    "Top down": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kuş bakışı"
+          }
+        }
+      }
+    },
     "Topic": {
       "localizations": {
         "tr": {
@@ -666,8 +976,48 @@
         }
       }
     },
+    "Two-finger rotate": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İki parmakla çevir"
+          }
+        }
+      }
+    },
+    "Two-finger scroll": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İki parmakla kaydır"
+          }
+        }
+      }
+    },
+    "Using git": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git'te çalışıyor"
+          }
+        }
+      }
+    },
     "Vardiya": {
       "shouldTranslate": false
+    },
+    "Viewing an image": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görsele bakıyor"
+          }
+        }
+      }
     },
     "Waiting for you": {
       "localizations": {
@@ -709,12 +1059,72 @@
         }
       }
     },
+    "Writing code": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod yazıyor"
+          }
+        }
+      }
+    },
+    "Writing docs": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belge yazıyor"
+          }
+        }
+      }
+    },
     "Your last message": {
       "localizations": {
         "tr": {
           "stringUnit": {
             "state": "translated",
             "value": "Son mesajınız"
+          }
+        }
+      }
+    },
+    "Zoom in": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yakınlaştır"
+          }
+        }
+      }
+    },
+    "Zoom out": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzaklaştır"
+          }
+        }
+      }
+    },
+    "Zoom toward the cursor": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İmlece doğru yakınlaş"
+          }
+        }
+      }
+    },
+    "[Image]": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Görsel]"
           }
         }
       }
@@ -731,6 +1141,16 @@
     },
     "· %@": {
       "shouldTranslate": false
+    },
+    "⌥ Drag · Right drag": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌥ ile sürükle · Sağ tıkla sürükle"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

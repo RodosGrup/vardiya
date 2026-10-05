@@ -58,10 +58,18 @@ extension Activity {
         switch self {
         case .idle: "cup.and.saucer"
         case .thinking: "sparkles"
-        case .reading: "doc.text"
+        case .reading: "chevron.left.forwardslash.chevron.right"
         case .searching: "magnifyingglass"
         case .writing: "pencil.line"
         case .running: "terminal"
+        case .viewing: "photo"
+        case .readingDocs: "doc.text"
+        case .writingDocs: "doc.badge.ellipsis"
+        case .building: "hammer"
+        case .testing: "checkmark.seal"
+        case .capturing: "camera.viewfinder"
+        case .webSearching: "globe"
+        case .usingGit: "arrow.triangle.branch"
         case .browsing: "safari"
         case .delegating: "person.2"
         case .tool: "wrench.and.screwdriver"
@@ -75,10 +83,18 @@ extension Activity {
         switch self {
         case .idle: String(localized: "Awaiting orders")
         case .thinking: String(localized: "Thinking")
-        case .reading: String(localized: "Reading")
+        case .reading: String(localized: "Reviewing code")
         case .searching: String(localized: "Searching")
-        case .writing: String(localized: "Writing")
+        case .writing: String(localized: "Writing code")
         case .running: String(localized: "Running")
+        case .viewing: String(localized: "Viewing an image")
+        case .readingDocs: String(localized: "Reading docs")
+        case .writingDocs: String(localized: "Writing docs")
+        case .building: String(localized: "Building")
+        case .testing: String(localized: "Testing")
+        case .capturing: String(localized: "Taking a screenshot")
+        case .webSearching: String(localized: "Searching the web")
+        case .usingGit: String(localized: "Using git")
         case .browsing: String(localized: "Browsing")
         case .delegating: String(localized: "Delegating")
         case .tool(let name, _): name

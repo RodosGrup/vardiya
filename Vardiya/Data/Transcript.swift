@@ -102,6 +102,13 @@ final class Transcript {
             applyAssistant(entry, at: at ?? .now)
         case "user":
             applyUser(entry, at: at ?? .now)
+        case "queue-operation":
+            // Kuyruğa girer girmez "Son mesajınız" güncellensin (teslim beklemeden).
+            if entry["operation"] as? String == "enqueue", let text = entry["content"] as? String,
+               !text.hasPrefix("<"), let snippet = Snippet.make(text) {
+                lastUserText = snippet
+                lastUserAt = at ?? .now
+            }
         case "attachment":
             // Ajan çalışırken yazılan mesajlar "queued_command" eki olarak kaydediliyor;
             // tur kesilmediği için bekleyen araçlara dokunmadan yalnızca mesajı alıyoruz.
@@ -149,7 +156,8 @@ final class Transcript {
         for block in blocks where block["type"] as? String == "tool_use" {
             guard let id = block["id"] as? String, let name = block["name"] as? String else { continue }
             let input = block["input"] as? [String: Any] ?? [:]
-            let event = ToolEvent(id: id, name: name, summary: ToolSummary.summarize(name: name, input: input), at: at)
+            var event = ToolEvent(id: id, name: name, summary: ToolSummary.summarize(name: name, input: input), at: at)
+            event.hint = ToolHint.classify(name: name, input: input)
             pending.append(event)
             recent.append(event)
             toolCount += 1

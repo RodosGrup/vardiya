@@ -19,7 +19,9 @@ final class Station3D {
         entity.position = center
         deskTop = center + [0, Self.deskHeight, 0]
 
+        // Kenney masasının bir yanı kapalı ön panel; bacak boşluğu çalışana (z−) baksın diye 180° çeviriyoruz.
         let desk = assets.prop("desk")
+        desk.orientation = simd_quatf(angle: .pi, axis: [0, 1, 0])
         entity.addChild(desk)
 
         // Sandalye masanın arkasında; Kenney modeli zaten +z'ye (masaya) bakıyor.
@@ -50,8 +52,9 @@ final class Station3D {
         // Ekranın parlayan yüzü. Kenney monitörünün paneli 39×25 cm, tabanın 17 cm üstünde ve
         // ~7° geriye yatık (ölçüm: scripts/build_assets.py ile aynı GLB). Monitörü 180° çevirdiğimiz
         // için panelin ön yüzü masada z≈0.115'e düşüyor; parlayan yüzeyi onun 5 mm önüne, aynı eğimle koyuyoruz.
-        screen = ModelEntity(mesh: .generatePlane(width: 0.35, height: 0.21, cornerRadius: 0.008), materials: [UnlitMaterial(color: .black)])
-        screen.position = [0.02, Self.deskHeight + 0.172, 0.109]
+        // Panelin neredeyse tamamı: 39×25 cm panelden ince bir çerçeve payı kalıyor.
+        screen = ModelEntity(mesh: .generatePlane(width: 0.375, height: 0.236, cornerRadius: 0.006), materials: [UnlitMaterial(color: .black)])
+        screen.position = [0.02, Self.deskHeight + 0.17, 0.104]
         screen.orientation = simd_quatf(angle: .pi, axis: [0, 1, 0]) * simd_quatf(angle: -0.13, axis: [1, 0, 0])
         entity.addChild(screen)
 
@@ -77,26 +80,52 @@ final class Station3D {
         let busy = a?.isBusy ?? false
         let needsYou = a?.needsYou ?? false
 
-        // Ekran rengi: çalışırken mavi, sizi beklerken turuncu, boştayken loş, masa boşsa kapalı.
-        let color: NSColor
+        // Ekran: yazarken/komut çalışırken kayan kod, okurken belge, düşünürken yanıp sönen imleç,
+        // sizi beklerken turuncu nabız, boştayken loş, masa boşsa kapalı.
         let glow: Float
-        switch (a, busy, needsYou) {
-        case (nil, _, _):
-            color = NSColor(srgbRed: 0.06, green: 0.06, blue: 0.07, alpha: 1); glow = 0
-        case (_, _, true):
+        var reel: ScreenTextures.Reel?
+        var fps: Float = 0
+        var solid: NSColor?
+        switch a {
+        case nil:
+            solid = NSColor(srgbRed: 0.06, green: 0.06, blue: 0.07, alpha: 1); glow = 0
+        case .some(let act) where act.needsYou:
             let pulse = 0.75 + 0.25 * sin(time * 5)
-            color = NSColor(srgbRed: 1, green: 0.62 * CGFloat(pulse), blue: 0.2, alpha: 1); glow = 260
-        case (_, true, _):
-            let flicker = 0.9 + 0.1 * sin(time * 9)
-            color = NSColor(srgbRed: 0.35 * CGFloat(flicker), green: 0.62 * CGFloat(flicker), blue: 1, alpha: 1); glow = 320
+            solid = NSColor(srgbRed: 1, green: 0.62 * CGFloat(pulse), blue: 0.2, alpha: 1); glow = 260
+        case .readingDocs, .writingDocs, .webSearching:
+            reel = .document; fps = 3; glow = 300
+        case .viewing, .capturing:
+            reel = .image; fps = 2; glow = 300
+        case .thinking:
+            reel = .cursor; fps = 4; glow = 140
+        case .reading, .searching:
+            // Kod inceliyor: kod ekranı ama yavaş kayıyor
+            reel = .code; fps = 2; glow = 240
+        case .some(let act) where act.isBusy:
+            reel = .code; fps = 7; glow = 260
         default:
-            color = NSColor(srgbRed: 0.2, green: 0.24, blue: 0.32, alpha: 1); glow = 60
+            solid = NSColor(srgbRed: 0.16, green: 0.2, blue: 0.27, alpha: 1); glow = 50
         }
-        let key = "\(color.redComponent.rounded2)-\(color.greenComponent.rounded2)-\(color.blueComponent.rounded2)"
-        if key != lastKey {
-            lastKey = key
-            screen.model?.materials = [UnlitMaterial(color: color)]
-            screenLight.light.color = color
+        if let reel {
+            let frames = ScreenTextures.frames(reel)
+            // Masalar aynı anda aynı kareyi göstermesin diye konuma göre faz kaydırıyoruz.
+            let phase = Int(abs(entity.position.x * 7 + entity.position.z * 13))
+            let index = frames.isEmpty ? 0 : (Int(time * fps) + phase) % frames.count
+            let key = "\(reel)-\(index)"
+            if key != lastKey, !frames.isEmpty {
+                lastKey = key
+                var m = UnlitMaterial()
+                m.color = .init(tint: .white, texture: .init(frames[index]))
+                screen.model?.materials = [m]
+                screenLight.light.color = reel == .document ? .white : NSColor(srgbRed: 0.3, green: 0.9, blue: 0.5, alpha: 1)
+            }
+        } else if let solid {
+            let key = "\(solid.redComponent.rounded2)-\(solid.greenComponent.rounded2)-\(solid.blueComponent.rounded2)"
+            if key != lastKey {
+                lastKey = key
+                screen.model?.materials = [UnlitMaterial(color: solid)]
+                screenLight.light.color = solid
+            }
         }
         // Ekran ışığı karanlıkta daha belirgin
         screenLight.light.intensity = glow * (1.6 - daylight)

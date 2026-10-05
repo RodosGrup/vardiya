@@ -13,6 +13,15 @@ struct VardiyaApp: App {
         .defaultSize(width: 1280, height: 800)
         .windowToolbarStyle(.unifiedCompact)
 
+        // Oturum başına sohbet penceresi
+        WindowGroup(id: "chat", for: String.self) { $sessionID in
+            if let sessionID {
+                ChatWindow(sessionID: sessionID)
+                    .environment(store)
+            }
+        }
+        .defaultSize(width: 560, height: 720)
+
         // Menü çubuğu: pencere kapalıyken de kim çalışıyor, kim sizi bekliyor görünsün.
         MenuBarExtra {
             MenuBarContent()
