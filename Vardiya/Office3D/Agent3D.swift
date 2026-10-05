@@ -366,7 +366,15 @@ final class Agent3D {
             let inside: SIMD3<Float> = [OfficeLayout3D.boothWidth - 0.3, 0, layout.boothDoorZ]
             path = route(from: entity.position, to: layout.toiletDoor) + [inside, destination]
         case (false, false):
-            path = route(from: entity.position, to: destination)
+            if destination.z < -0.1 {
+                // Dışarı (kaldırım): kapıya kadar ofis içi rota, sonra taş yoldan dümdüz
+                path = route(from: entity.position, to: layout.door + [0, 0, 0.4]) + [layout.door, destination]
+            } else if entity.position.z < -0.1 {
+                // Dışarıdan içeri: önce kapı, sonra ofis içi rota
+                path = [layout.door, layout.door + [0, 0, 0.4]] + route(from: layout.door + [0, 0, 0.4], to: destination)
+            } else {
+                path = route(from: entity.position, to: destination)
+            }
         }
         mode = .walking(path: path, then: then, speed: speed)
         bestDistance = .greatestFiniteMagnitude

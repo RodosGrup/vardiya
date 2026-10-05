@@ -4,6 +4,8 @@ import SwiftUI
 struct MainView: View {
     @Environment(ShiftStore.self) private var store
     @AppStorage("officeStyle") private var style = OfficeStyle.threeD
+    /// Sağ paneli (detay + vardiyadakiler) gizleyip ekranı sahneye bırakır.
+    @AppStorage("panelHidden") private var panelHidden = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -17,6 +19,19 @@ struct MainView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .fixedSize()
+                Button {
+                    withAnimation(.snappy) { panelHidden.toggle() }
+                } label: {
+                    Image(systemName: "sidebar.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(panelHidden ? Theme.textSecondary : Theme.accent)
+                        .frame(width: 30, height: 24)
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 6))
+                        .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.border) }
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("0", modifiers: [.command, .option])
+                .help(Text(panelHidden ? "Show the side panel" : "Hide the side panel"))
             }
             HStack(alignment: .top, spacing: 14) {
                 ZStack(alignment: .topLeading) {
@@ -34,11 +49,14 @@ struct MainView: View {
                 }
                 .card()
 
-                VStack(spacing: 14) {
-                    DetailPanel()
-                    ShiftList()
+                if !panelHidden {
+                    VStack(spacing: 14) {
+                        DetailPanel()
+                        ShiftList()
+                    }
+                    .frame(width: 320)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
-                .frame(width: 320)
             }
         }
         .padding(18)

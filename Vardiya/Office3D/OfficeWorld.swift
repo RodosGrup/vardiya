@@ -46,6 +46,8 @@ final class OfficeWorld {
     @ObservationIgnored private var lastLightingUpdate: Date = .distantPast
     @ObservationIgnored private var ceilingLamps: [CeilingLamp] = []
     @ObservationIgnored private var serverRack: ServerRack?
+    @ObservationIgnored private var environment: Environment3D?
+    @ObservationIgnored private var skyColor: NSColor = .white
     /// Etkin veri bağlantıları: "web:<ajan>" (masa → kabin), "sub:<alt ajan>" (ana masa → alt ajan masası)
     @ObservationIgnored private var links: [String: DataLink] = [:]
     @ObservationIgnored private var boothDoor: Entity?
@@ -142,6 +144,9 @@ final class OfficeWorld {
 
         buildShell(assets)
         buildAmenities(assets)
+        let env = Environment3D(assets: assets, layout: layout)
+        furniture.addChild(env.entity)
+        environment = env
         for (r, room) in rooms.enumerated() {
             let occupants = min(OfficeLayout3D.maxPerRoom, room.shifts.reduce(0) { $0 + 1 + $1.subagents.count })
             for slot in 0..<occupants {
@@ -190,11 +195,11 @@ final class OfficeWorld {
         // Duvar yüksekliğinde ve hemen arkasında: yukarıdan bakınca duvarın ardında kalır, yalnızca pencerelerden görünür.
         skyBack = ModelEntity(mesh: .generatePlane(width: Float(w), height: 1.25), materials: [UnlitMaterial(color: .white)])
         skyBack.position = [Float(w) / 2, 0.62, -0.07]
-        furniture.addChild(skyBack)
+        // Dışarısı artık gerçek bir çevre; pencerelerin arkasındaki düz gökyüzü düzlemi gereksiz.
         skyLeft = ModelEntity(mesh: .generatePlane(width: Float(d), height: 1.25), materials: [UnlitMaterial(color: .white)])
         skyLeft.orientation = simd_quatf(angle: .pi / 2, axis: [0, 1, 0])
         skyLeft.position = [-0.07, 0.62, Float(d) / 2]
-        furniture.addChild(skyLeft)
+
         updateLighting(force: true)
     }
 
@@ -377,7 +382,7 @@ final class OfficeWorld {
                     agents[worker.id] = agent
                     // İlk açılışta herkes masasında başlar; sonradan gelen alt ajanlar kapıdan girer.
                     if hasSynced {
-                        agent.enter(from: layout.door)
+                        agent.enter(from: Environment3D.sidewalk(for: layout))
                         if let parent, let from = agents[parent] {
                             launchEnvelope(from: from.deskTop, to: agent.home.desk + [0, 0.5, 0], kind: .delegate, to: agent)
                         }
@@ -392,7 +397,7 @@ final class OfficeWorld {
         }
         // Gidenler kapıdan çıkar.
         for (id, agent) in agents where !seen.contains(id) && !agent.isLeaving {
-            agent.leave(to: layout.door)
+            agent.leave(to: Environment3D.sidewalk(for: layout))
         }
         stations.values.forEach { $0.setOccupant(nil) }
         for agent in agents.values where !agent.isLeaving {
@@ -407,7 +412,7 @@ final class OfficeWorld {
         let fresh: (Date?) -> Bool = { d in d.map { Date.now.timeIntervalSince($0) < 15 } ?? false }
 
         if let at = w.lastUserAt, at != before.lastUserAt, fresh(at) {
-            launchEnvelope(from: layout.door + [0, 1.0, 0], to: agent.deskTop, kind: .prompt, to: agent)
+            launchEnvelope(from: Environment3D.sidewalk(for: layout) + [0, 1.4, 0], to: agent.deskTop, kind: .prompt, to: agent)
             if let text = w.lastUserText {
                 speech[w.id] = SpeechBubble(text: text, kind: .prompt, until: .now + 6)
             }
@@ -415,7 +420,7 @@ final class OfficeWorld {
         if let at = w.lastReplyAt, at != before.lastReplyAt, fresh(at), let text = w.lastReplyText {
             speech[w.id] = SpeechBubble(text: text, kind: .reply, until: .now + 8)
             if !w.activity.isBusy, w.kind == .main {
-                launchEnvelope(from: agent.deskTop, to: layout.door + [0, 1.0, 0], kind: .reply, to: nil)
+                launchEnvelope(from: agent.deskTop, to: Environment3D.sidewalk(for: layout) + [0, 1.4, 0], kind: .reply, to: nil)
             }
         }
         if case .subagent = w.kind, w.activity == .done, before.activity != .done,
@@ -457,6 +462,7 @@ final class OfficeWorld {
         }
 
         updateBoothDoor(dt: dt)
+        environment?.tick(time: time, daylight: daylight, skyColor: skyColor)
         updateSelectionRing()
         updateCamera(dt: dt)
         updateLighting(force: false)
@@ -615,6 +621,11 @@ final class OfficeWorld {
         followID = nil
         rigGoal.target = layout.center + [0, 0, 0.2]
         rigGoal.distance = fitDistance
+        #if DEBUG
+        // Test: `-vardiyaZoom 2.2` ile açılışta uzaktan bak (çevreyi görmek için)
+        let z = UserDefaults.standard.double(forKey: "vardiyaZoom")
+        if z > 0 { rigGoal.distance *= Float(z) }
+        #endif
         if !animated { rig = rigGoal }
     }
 
@@ -659,7 +670,7 @@ final class OfficeWorld {
     /// İmlecin altındaki noktaya doğru yakınlaşır (harita uygulamalarındaki gibi).
     func zoom(by factor: Float, at point: CGPoint? = nil) {
         let old = rigGoal.distance
-        rigGoal.distance = min(fitDistance * 1.6, max(1.8, old * factor))
+        rigGoal.distance = min(fitDistance * 3.2, max(1.8, old * factor))
         let applied = rigGoal.distance / old
         if let point, followID == nil, let ground = groundPoint(under: point) {
             rigGoal.target += (ground - rigGoal.target) * (1 - applied)
@@ -668,8 +679,9 @@ final class OfficeWorld {
     }
 
     private func clampGoal() {
-        rigGoal.target.x = min(layout.width + 0.5, max(-0.5, rigGoal.target.x))
-        rigGoal.target.z = min(layout.depth + 0.5, max(-0.5, rigGoal.target.z))
+        // Çevreyi de gezebilmek için ofisin biraz dışına çıkılabilir
+        rigGoal.target.x = min(layout.width + 8, max(-10, rigGoal.target.x))
+        rigGoal.target.z = min(layout.depth + 8, max(-14, rigGoal.target.z))
         rigGoal.target.y = max(0, min(1, rigGoal.target.y))
     }
 
@@ -770,8 +782,7 @@ final class OfficeWorld {
         let skyNight = NSColor(srgbRed: 0.05, green: 0.08, blue: 0.2, alpha: 1)
         var sky = skyNight.blended(withFraction: CGFloat(day), of: skyDay) ?? skyDay
         sky = sky.blended(withFraction: CGFloat(min(0.7, golden * 0.6)), of: skyDusk) ?? sky
-        skyBack.model?.materials = [UnlitMaterial(color: sky)]
-        skyLeft.model?.materials = [UnlitMaterial(color: sky)]
+        skyColor = sky
     }
 
     /// Yumuşak, gökyüzünden zemine geçen basit bir ortam haritası (equirectangular).

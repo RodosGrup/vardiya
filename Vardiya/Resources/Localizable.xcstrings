@@ -446,6 +446,16 @@
         }
       }
     },
+    "Hide the side panel": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yan paneli gizle"
+          }
+        }
+      }
+    },
     "In progress": {
       "localizations": {
         "tr": {
@@ -832,6 +842,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vardiya başlangıcı %@"
+          }
+        }
+      }
+    },
+    "Show the side panel": {
+      "localizations": {
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yan paneli göster"
           }
         }
       }

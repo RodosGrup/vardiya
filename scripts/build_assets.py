@@ -24,7 +24,30 @@ OUT = os.path.join(ROOT, "Vardiya", "Resources", "Models")
 PACKS = {
     "mini": "https://kenney.nl/media/pages/assets/mini-characters/bfc7e272b4-1774770718/kenney_mini-characters.zip",
     "furniture": "https://kenney.nl/media/pages/assets/furniture-kit/440e0608a4-1677580847/kenney_furniture-kit.zip",
+    "nature": "https://kenney.nl/media/pages/assets/nature-kit/37ac38a37b-1677698939/kenney_nature-kit.zip",
+    "commercial": "https://kenney.nl/media/pages/assets/city-kit-commercial/a742d900eb-1753115042/kenney_city-kit-commercial_2.1.zip",
+    "suburban": "https://kenney.nl/media/pages/assets/city-kit-suburban/2c871b7af2-1745479373/kenney_city-kit-suburban_20.zip",
+    "roads": "https://kenney.nl/media/pages/assets/city-kit-roads/74288c9459-1787042796/kenney_city-kit-roads.zip",
+    "cars": "https://kenney.nl/media/pages/assets/car-kit/1a312ec241-1775131960/kenney_car-kit.zip",
 }
+
+# Ofisin çevresi: bahçe, yol, şehir. (paket, model adı) — çıktı adı "env-<model>"
+ENVIRONMENT = [("nature", n) for n in [
+    "tree_oak", "tree_default", "tree_detailed", "tree_fat", "tree_cone", "tree_blocks",
+    "plant_bush", "plant_bushLarge", "plant_bushDetailed", "plant_bushSmall",
+    "flower_redA", "flower_yellowA", "flower_purpleA", "grass", "grass_large",
+    "rock_smallA", "rock_largeA", "path_stone",
+]] + [("commercial", n) for n in [
+    "building-a", "building-c", "building-e", "building-g", "building-j", "building-l",
+    "building-skyscraper-a", "building-skyscraper-b", "building-skyscraper-c", "building-skyscraper-e",
+    "low-detail-building-a", "low-detail-building-c", "low-detail-building-e", "low-detail-building-h",
+    "low-detail-building-k", "low-detail-building-wide-a",
+]] + [("suburban", n) for n in [
+    "building-type-a", "building-type-c", "building-type-f", "building-type-k", "building-type-p",
+    "tree-large", "tree-small", "planter", "fence-low",
+]] + [("roads", n) for n in [
+    "road-straight", "road-crossroad", "light-square", "light-curved",
+]] + [("cars", n) for n in ["sedan", "taxi", "suv", "van", "hatchback-sports"]]
 
 FURNITURE = [
     "desk", "chairDesk", "laptop", "computerScreen", "computerKeyboard", "computerMouse",
@@ -47,7 +70,8 @@ def fetch():
             continue
         zpath = target + ".zip"
         print("indiriliyor:", url)
-        urllib.request.urlretrieve(url, zpath)
+        # urllib büyük dosyalarda takılabiliyor; curl daha sağlam.
+        subprocess.run(["curl", "-sL", "--max-time", "300", "-o", zpath, url], check=True)
         with zipfile.ZipFile(zpath) as z:
             z.extractall(target)
 
@@ -282,6 +306,35 @@ def convert_furniture(src, name, out_dir):
     subprocess.run(["usdzip", out, name + ".usdc"], cwd=work, check=True, capture_output=True)
 
 
+def convert_textured(src, name, out_dir):
+    """Dokulu GLB: usdextract dokuları da çıkarır, usdzip hepsini tek pakete koyar."""
+    work = os.path.join(CACHE, "work", "env", name)
+    if os.path.isdir(work):
+        shutil.rmtree(work)
+    os.makedirs(work)
+    subprocess.run(["usdextract", "-o", work, src], check=True, capture_output=True)
+    files = []
+    for root, _, names in os.walk(work):
+        for f in names:
+            files.append(os.path.relpath(os.path.join(root, f), work))
+    # Ana USD dosyası paketin ilk dosyası olmalı
+    files.sort(key=lambda f: (not f.endswith((".usdc", ".usda", ".usd")), f))
+    out = os.path.join(out_dir, name + ".usdz")
+    if os.path.exists(out):
+        os.remove(out)
+    subprocess.run(["usdzip", out] + files, cwd=work, check=True, capture_output=True)
+
+
+def find_glb(pack, model):
+    for root, _, names in os.walk(os.path.join(CACHE, pack)):
+        if model + ".glb" in names and "GLB" in root.upper():
+            return os.path.join(root, model + ".glb")
+    for root, _, names in os.walk(os.path.join(CACHE, pack)):
+        if model + ".glb" in names:
+            return os.path.join(root, model + ".glb")
+    raise FileNotFoundError(pack + "/" + model)
+
+
 def main():
     fetch()
     os.makedirs(OUT, exist_ok=True)
@@ -299,6 +352,10 @@ def main():
     for f in FURNITURE:
         convert_furniture(os.path.join(glb_furn, f + ".glb"), f, OUT)
     print("mobilya:", len(FURNITURE))
+
+    for pack, model in ENVIRONMENT:
+        convert_textured(find_glb(pack, model), "env-" + model, OUT)
+    print("çevre:", len(ENVIRONMENT))
 
     shutil.copy(os.path.join(CACHE, "mini", "License.txt"), os.path.join(OUT, "LICENSE-kenney.txt"))
 

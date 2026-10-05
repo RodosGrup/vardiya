@@ -20,6 +20,8 @@ RealityKit ile çizilen gerçek bir 3D sahne (üstteki "3D / Sade" seçimiyle 2D
 - Mesajınız kapıdan çıkan ışıklı bir zarfla ajana uçar; yanıtı balonda görünür.
 - Kantindeki sunucu kabini ofisin "interneti": web araması, tarayıcı ya da MCP aracı kullanan ajanın masasından kabine yeşil, paketli bir bağlantı uzanır. Çalışan alt ajanla ana ajan arasında mor bağlantı durur.
 - Gün/gece döngüsü gerçek saate bağlı: gece avizeler yanar, çalışan masaların lambası açılır.
+- Ofisin çevresi: çimenli bahçe, ağaçlar ve çiçekler, solda müstakil evler, arkada sokak lambalı cadde ve park etmiş arabalar, karşıda ofis binaları ve gökdelenler, ufukta şehir silueti. Gece pencereler ve sokak lambaları yanar, gökyüzü saate göre renk değiştirir. Ajanlar kapıdan taş yolla kaldırıma çıkıp gelir.
+- Sağ üstteki panel düğmesi (⌥⌘0) sağ paneli gizleyip ekranı sahneye bırakır.
 - Kamera: sürükle = döndür, ⌥/sağ tıkla sürükle veya iki parmak kaydır = kaydır, kıstır/tekerlek = imlece doğru yakınlaş, çift tık = tüm ofis; ajana tıklayınca kamera onu takip eder. Hazır açılar: izometrik, kuş bakışı, önden.
 - Ajanın ne yaptığı ayrıntılı: kod inceliyor/yazıyor, belge okuyor/yazıyor, görsele bakıyor, derliyor, test ediyor, git, web araması, ekran görüntüsü. Monitörde buna göre kayan kod, belge ya da görsel görünür.
 - Sohbet penceresi: bir oturumla aranızdaki konuşmanın tamamı; araç adımları gruplanır, ajan çalışırken yazdığınız mesaj "Sırada" balonuyla hemen görünür, pencere en yeni mesajlardan açılır. Dosya/görsel sürükleyince yolu eklenir.
@@ -70,9 +72,10 @@ Debug derlemesinde test parametreleri:
 - `-vardiyaFastBreaks YES`: molalar birkaç saniye içinde başlar.
 - `-vardiyaSpot toilet|water|sofa|coffee|lunch`: mola yerini zorlar.
 - `-vardiyaFocus 3`: kamerayı 3. ajana odaklar.
+- `-vardiyaZoom 3`: açılışta kamerayı uzaklaştırır (çevreyi görmek için).
 
 ## Lisans
 
 © 2026 Batuhan Haymana
 
-3D modeller: [Kenney](https://kenney.nl) Mini Characters ve Furniture Kit, CC0 (`Vardiya/Resources/Models/LICENSE-kenney.txt`).
+3D modeller: [Kenney](https://kenney.nl) Mini Characters, Furniture Kit, Nature Kit, City Kit (Commercial, Suburban, Roads) ve Car Kit, CC0 (`Vardiya/Resources/Models/LICENSE-kenney.txt`).
