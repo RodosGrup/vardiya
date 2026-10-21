@@ -1,3 +1,12 @@
+<p align="center"><img src="docs/banner.png" alt="Vardiya" width="820"></p>
+
+<p align="center">
+  <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square&logo=apple&logoColor=white">
+  <img alt="Swift" src="https://img.shields.io/badge/Swift-5-F05138?style=flat-square&logo=swift&logoColor=white">
+  <img alt="RealityKit" src="https://img.shields.io/badge/RealityKit-3D%20ofis-5856d6?style=flat-square">
+  <img alt="MIT" src="https://img.shields.io/badge/Lisans-MIT-3b82f6?style=flat-square">
+</p>
+
 # Vardiya
 
 Açık olan bütün Claude Code oturumlarınızı izometrik bir ofiste, masa başında çalışan karakterler olarak gösteren macOS uygulaması.
@@ -62,7 +71,7 @@ xcodebuild -project Vardiya.xcodeproj -scheme Vardiya -configuration Debug -deri
 open build/Build/Products/Debug/Vardiya.app
 ```
 
-İkonu yeniden üretmek için: `python3 scripts/make_icon.py` (Pillow gerekir).
+İkonu, README logosunu ve kapağı yeniden üretmek için: `python3 scripts/make_icon.py` (Pillow gerekir).
 
 3D varlıkları yeniden üretmek için: `python3 scripts/build_assets.py`. Kenney paketlerini indirir, mobilyaları USDZ'ye çevirir, karakterleri eklem parçalarına ayırır ve animasyonları `animations.json`'a çıkarır. Yeni model eklediyseniz ardından `xcodegen generate` çalıştırın.
 

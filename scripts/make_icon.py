@@ -88,3 +88,35 @@ def main():
     final.save(os.path.join(os.path.dirname(__file__), "icon_1024.png"))
 
 main()
+
+
+def banner():
+    """README kapağı: Jarvis ile aynı düzen (koyu zemin, solda ikon, sağda ad ve alt başlık)."""
+    from PIL import ImageFont
+    icon = Image.open(os.path.join(OUT, "icon_512@2x.png")).convert("RGBA")
+    W, H = 1600, 600
+    img = Image.new("RGBA", (W, H), (6, 7, 10, 255))
+    # Yumuşak gölge
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.rounded_rectangle((120, 90, 560, 530), radius=100, fill=(0, 0, 0, 160))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(28))
+    img.alpha_composite(shadow)
+    img.alpha_composite(icon.resize((460, 460), Image.LANCZOS), (110, 70))
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/SFNS.ttf", 150)
+        sub = ImageFont.truetype("/System/Library/Fonts/SFNS.ttf", 44)
+    except Exception:
+        font = ImageFont.load_default(); sub = font
+    d = ImageDraw.Draw(img)
+    d.text((660, 190), "Vardiya", font=font, fill=(240, 240, 245, 255))
+    d.text((666, 360), "Claude oturumlarınız bir ofiste, masa başında", font=sub, fill=(140, 144, 152, 255))
+    docs = os.path.join(os.path.dirname(__file__), "..", "docs")
+    os.makedirs(docs, exist_ok=True)
+    img.save(os.path.join(docs, "banner.png"))
+    icon.resize((512, 512), Image.LANCZOS).save(os.path.join(docs, "logo.png"))
+    print("docs/banner.png + docs/logo.png üretildi")
+
+
+if __name__ == "__main__":
+    banner()
