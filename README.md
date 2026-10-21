@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/banner.png" alt="Vardiya" width="820"></p>
+<p align="center"><img src="docs/kapak.png" alt="Vardiya" width="820"></p>
 
 <p align="center">
   <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square&logo=apple&logoColor=white">
