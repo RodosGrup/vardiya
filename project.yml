@@ -22,7 +22,7 @@ targets:
         PRODUCT_NAME: Vardiya
         INFOPLIST_KEY_CFBundleDisplayName: Vardiya
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
-        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Batuhan Haymana"
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Rodosgrup Yazılım Ekibi"
         GENERATE_INFOPLIST_FILE: YES
         # Sandbox kapalı: ~/.claude altındaki oturum kayıtlarını okumamız gerekiyor.
         ENABLE_APP_SANDBOX: NO

@@ -76,6 +76,6 @@ Debug derlemesinde test parametreleri:
 
 ## Lisans
 
-© 2026 Batuhan Haymana
+MIT · © 2026 Rodosgrup Yazılım Ekibi. Ayrıntı için [LICENSE](LICENSE).
 
 3D modeller: [Kenney](https://kenney.nl) Mini Characters, Furniture Kit, Nature Kit, City Kit (Commercial, Suburban, Roads) ve Car Kit, CC0 (`Vardiya/Resources/Models/LICENSE-kenney.txt`).
