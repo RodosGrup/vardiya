@@ -71,8 +71,6 @@ xcodebuild -project Vardiya.xcodeproj -scheme Vardiya -configuration Debug -deri
 open build/Build/Products/Debug/Vardiya.app
 ```
 
-İkonu, README logosunu ve kapağı yeniden üretmek için: `python3 scripts/make_icon.py` (Pillow gerekir).
-
 3D varlıkları yeniden üretmek için: `python3 scripts/build_assets.py`. Kenney paketlerini indirir, mobilyaları USDZ'ye çevirir, karakterleri eklem parçalarına ayırır ve animasyonları `animations.json`'a çıkarır. Yeni model eklediyseniz ardından `xcodegen generate` çalıştırın.
 
 Debug derlemesinde test parametreleri:
